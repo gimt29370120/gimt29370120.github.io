@@ -4,10 +4,52 @@
 <meta charset="UTF-8">
 <title>title</title>
 <style>
+body{
+ margin:0;
+ padding:0;
+}
+ul{
+ margin:0;
+ padding:0;
+ list-style:none;
+}
+.site-wrap{
+ width:95%;
+ max-width:1200px;
+ margin:0 auto;
+}
+.site-header{
+ height:340px;
+ background-size: 100% auto;
+}
+.menu_wrap{
+ height:42px;
+ background-color:#2222cc;
+ color:#ffffff;
+}
+li{
+ position:relative;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+}
 </style>
 </head>
 <body>
- <div style="background-image:url(dream_tower.png);height:300px;"></div>
- <p>123</p>
+ <div class="site-wrap">
+ <header class="site-header" style="background-image:url(dream_tower.png);">
+  <ul class="menu_wrap">
+   <li><a>顏色</a>
+    <ul>
+     <li><a style="display:none;">紅</a></li>
+     <li><a style="display:none;">綠</a></li>
+     <li><a style="display:none;">黃</a></li>
+    </ul>
+   </li>
+   <li>其他</li>
+  </ul>
+  <p>123</p>
+ </header>
+ </div>
 </body>
 </html>
