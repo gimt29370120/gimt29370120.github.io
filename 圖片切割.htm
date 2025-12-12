@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>圖片切割與位移</title>
+<style>
+  body {
+    font-family: sans-serif;
+    text-align: center;
+    margin: 20px;
+  }
+  #controls {
+    margin-bottom: 10px;
+  }
+  #canvasContainer {
+    display: inline-block;
+    position: relative;
+  }
+  canvas {
+    border: 1px solid #333;
+  }
+</style>
+</head>
+<body>
+  <h2>圖片切割與位移工具</h2>
+  <div id="controls">
+    <input type="file" id="imageInput" accept="image/*"><br><br>
+    橫向切塊數（X）：<input type="number" id="xPieces" value="4" min="1" max="50">
+    縱向切塊數（Y）：<input type="number" id="yPieces" value="4" min="1" max="50">
+    <button id="cutBtn">切割圖片</button>
+    <br><br>
+    <button id="upBtn">⬆️ 上</button>
+    <button id="leftBtn">⬅️ 左</button>
+    <button id="rightBtn">➡️ 右</button>
+    <button id="downBtn">⬇️ 下</button>
+  </div>
+
+  <div id="canvasContainer">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById("imageInput");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    
+    let int1=0;
+    let img = new Image();
+    let pieces = [];
+    let xPieces = 4, yPieces = 4;
+    let imgWidth, imgHeight;
+    let offsetX = 0, offsetY = 0;
+
+    document.getElementById("cutBtn").onclick = () => {function1()};
+    function function1(){
+      if (!img.src) {
+        alert("請先上傳圖片！");
+        return;
+      }
+      xPieces = parseInt(document.getElementById("xPieces").value);
+      yPieces = parseInt(document.getElementById("yPieces").value);
+      cutImage();
+    }
+
+    imageInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      int1=0;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          imgWidth = img.width;
+          imgHeight = img.height;
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function cutImage() {
+      int1=1;
+      const pw = imgWidth / xPieces;
+      const ph = imgHeight / yPieces;
+      pieces = [];
+
+      // 先把圖分塊
+      for (let y = 0; y < yPieces; y++) {
+        for (let x = 0; x < xPieces; x++) {
+          const pieceCanvas = document.createElement("canvas");
+          pieceCanvas.width = pw;
+          pieceCanvas.height = ph;
+          const pctx = pieceCanvas.getContext("2d");
+          pctx.drawImage(img, x * pw, y * ph, pw, ph, 0, 0, pw, ph);
+          pieces.push(pieceCanvas);
+        }
+      }
+
+      offsetX = 0;
+      offsetY = 0;
+      drawPieces();
+    }
+
+    function drawPieces() {
+      const pw = imgWidth / xPieces;
+      const ph = imgHeight / yPieces;
+      ctx.clearRect(0, 0, imgWidth, imgHeight);
+
+      for (let y = 0; y < yPieces; y++) {
+        for (let x = 0; x < xPieces; x++) {
+          const drawX = (x + offsetX % xPieces + xPieces) % xPieces;
+          const drawY = (y + offsetY % yPieces + yPieces) % yPieces;
+          const idx = drawY * xPieces + drawX;
+          ctx.drawImage(pieces[idx], x * pw, y * ph, pw, ph);
+        }
+      }
+    }
+
+    document.getElementById("upBtn").onclick = () => { if(int1==0)function1(); offsetY--; drawPieces(); };
+    document.getElementById("downBtn").onclick = () => { if(int1==0)function1(); offsetY++; drawPieces(); };
+    document.getElementById("leftBtn").onclick = () => { if(int1==0)function1(); offsetX--; drawPieces(); };
+    document.getElementById("rightBtn").onclick = () => { if(int1==0)function1(); offsetX++; drawPieces(); };
+  </script>
+</body>
+</html>
