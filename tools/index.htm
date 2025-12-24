@@ -1,1 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+<header>Header</header>
 
+<div id="content"></div>
+
+<script>
+const path = location.pathname.split('/').pop();
+const page = path && path !== 'index.htm' ? path : 'home.htm';
+
+fetch(page)
+  .then(res => res.text())
+  .then(html => document.getElementById('content').innerHTML = html)
+  .catch(() => document.getElementById('content').innerHTML = 'Page not found');
+</script>
+
+<footer>Footer</footer>
+</body>
+</html>
