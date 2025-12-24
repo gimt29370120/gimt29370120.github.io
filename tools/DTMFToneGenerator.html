@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DTMF Tone Generator — Pointer 即時版</title>
+  <style>
+    :root { --btn-size: 74px; --gap: 8px; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial; display:flex; flex-direction:column; align-items:center; padding:28px; }
+    h1 { margin:0 0 18px 0; font-size:20px; }
+    .pad {
+      display:inline-grid;
+      grid-template-columns: repeat(4, var(--btn-size));
+      gap: var(--gap);
+      -webkit-user-select: none; user-select: none; /* 整體不可選取 */
+    }
+    .pad button {
+      width: var(--btn-size);
+      height: var(--btn-size);
+      font-size: 22px;
+      border-radius:8px;
+      border:1px solid #ccc;
+      background:linear-gradient(#fff, #f3f3f3);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04) inset;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      /* 禁止文字被選取並避免觸控延遲/捲動干擾 */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      touch-action: none; /* 確保 pointerdown 立即回應，不會被滾動手勢攔截 */
+    }
+    .pad button:active { transform: translateY(1px); }
+    /* 如果想要更明顯的按下樣式，可加上 */
+    .pad button.playing { background: linear-gradient(#e6f7ff, #cceeff); border-color: #66c2ff; }
+    /* 防止長按彈出選單（iOS） */
+    html, body { -webkit-touch-callout: none; }
+    /* 小提示 */
+    .hint { margin-top:14px; color:#666; font-size:13px; }
+  </style>
+</head>
+<body>
+  <h1>DTMF Tone Generator</h1>
+
+  <div class="pad" role="group" aria-label="DTMF 按鍵">
+    <button data-digit="1" aria-label="1">1</button>
+    <button data-digit="2" aria-label="2">2</button>
+    <button data-digit="3" aria-label="3">3</button>
+    <button data-digit="A" aria-label="A">A</button>
+
+    <button data-digit="4" aria-label="4">4</button>
+    <button data-digit="5" aria-label="5">5</button>
+    <button data-digit="6" aria-label="6">6</button>
+    <button data-digit="B" aria-label="B">B</button>
+
+    <button data-digit="7" aria-label="7">7</button>
+    <button data-digit="8" aria-label="8">8</button>
+    <button data-digit="9" aria-label="9">9</button>
+    <button data-digit="C" aria-label="C">C</button>
+
+    <button data-digit="*" aria-label="星號">*</button>
+    <button data-digit="0" aria-label="0">0</button>
+    <button data-digit="#" aria-label="井號">#</button>
+    <button data-digit="D" aria-label="D">D</button>
+  </div>
+
+  <div class="hint">按住會播放，放開停止。支援多指同時按。</div>
+
+  <script>
+    // DTMF 頻率表 (標準)
+    const DTMF = {
+      "1":[697,1209],"2":[697,1336],"3":[697,1477],"A":[697,1633],
+      "4":[770,1209],"5":[770,1336],"6":[770,1477],"B":[770,1633],
+      "7":[852,1209],"8":[852,1336],"9":[852,1477],"C":[852,1633],
+      "*":[941,1209],"0":[941,1336],"#":[941,1477],"D":[941,1633]
+    };
+
+    // AudioContext 全域單一實例
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContextCtor();
+
+    // 追蹤正在播放的 oscillator（支援多 pointer）
+    // Map<pointerId, {osc1, osc2, gain, button}>
+    const active = new Map();
+
+    // 預設音量，可改為 UI 控制
+    const DEFAULT_GAIN = 0.18;
+
+    // 建立並開始 DTMF（針對一個 pointer）
+    function startDTMF(digit, pointerId, buttonEl) {
+      if (!DTMF[digit]) return;
+      if (active.has(pointerId)) return; // 已有與此 pointerId 的音色
+
+      const [f1, f2] = DTMF[digit];
+      // Resume audioCtx 如果是第一次使用（某些瀏覽器要求 user gesture）
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(()=>{ /* ignore */ });
+      }
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.value = f1;
+      osc2.frequency.value = f2;
+      gain.gain.value = DEFAULT_GAIN;
+
+      // 混合兩個 osc 到 gain，然後輸出
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      // 小的短時間 gain envelope（避免 pop）
+      const now = audioCtx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(DEFAULT_GAIN, now + 0.005);
+
+      osc1.start(now);
+      osc2.start(now);
+
+      // 標記按鈕為 playing（視覺反饋）
+      if (buttonEl) buttonEl.classList.add('playing');
+
+      active.set(pointerId, { osc1, osc2, gain, buttonEl });
+    }
+
+    // 停止對應 pointer 的 DTMF
+    function stopDTMF(pointerId) {
+      const record = active.get(pointerId);
+      if (!record) return;
+      const { osc1, osc2, gain, buttonEl } = record;
+      const now = audioCtx.currentTime;
+      // 使用短的 release envelope
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+
+      // 停止並在短延遲後 disconnect (給 envelope 時間)
+      setTimeout(() => {
+        try { osc1.stop(); } catch(e){}
+        try { osc2.stop(); } catch(e){}
+        try { osc1.disconnect(); } catch(e){}
+        try { osc2.disconnect(); } catch(e){}
+        try { gain.disconnect(); } catch(e){}
+      }, 50);
+
+      if (buttonEl) buttonEl.classList.remove('playing');
+
+      active.delete(pointerId);
+    }
+
+    // 如果需要一個「在放開頁面其他地方也停止所有正在播放」的保險機制
+    function stopAll() {
+      for (const pid of Array.from(active.keys())) stopDTMF(pid);
+    }
+
+    // 綁定 pointer 事件：pointerdown 開始，pointerup/pointercancel 停止
+    document.querySelectorAll('.pad button').forEach(btn => {
+      const digit = btn.dataset.digit;
+
+      btn.addEventListener('pointerdown', (ev) => {
+        // 阻止預設（避免觸發 click / focus 遲延等）
+        ev.preventDefault();
+        // 使用 pointerId 追蹤多指
+        startDTMF(digit, ev.pointerId, btn);
+      }, { passive: false });
+
+      // pointerup / pointercancel / pointerleave: 停止
+      btn.addEventListener('pointerup', (ev) => {
+        ev.preventDefault();
+        stopDTMF(ev.pointerId);
+      });
+      btn.addEventListener('pointercancel', (ev) => {
+        stopDTMF(ev.pointerId);
+      });
+      btn.addEventListener('pointerleave', (ev) => {
+        // 如果手指移出按鈕（仍按著），通常會希望停止
+        // 但有些 UI 想要移出不停止，可依需求調整
+        // 這裡選擇移出就停止（與原站行為一致）
+        if (ev.buttons === 0) { // 若沒有按鍵了就忽略
+          stopDTMF(ev.pointerId);
+        } else {
+          // 若仍在按（例如滑動），也停止：這可避免某些瀏覽器行為差異
+          stopDTMF(ev.pointerId);
+        }
+      });
+
+      // 防止 long-press context menu（右鍵選單）
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    });
+
+    // 若滑鼠在按下之後移出按鈕到外面放開，pointerup 會發生在按下的 element
+    // 但為了保險，在 window 上也監聽 pointerup / pointercancel 以清理任何遺留聲音
+    window.addEventListener('pointerup', (e) => {
+      stopDTMF(e.pointerId);
+    });
+    window.addEventListener('pointercancel', (e) => {
+      stopDTMF(e.pointerId);
+    });
+
+    // 如果使用鍵盤也要觸發（選擇性）：keydown / keyup
+    const keyMap = {
+      'Digit1':'1','Digit2':'2','Digit3':'3','KeyA':'A',
+      'Digit4':'4','Digit5':'5','Digit6':'6','KeyB':'B',
+      'Digit7':'7','Digit8':'8','Digit9':'9','KeyC':'C',
+      'Digit0':'0','Numpad0':'0'
+    };
+    const keyToDigit = {
+      '1':'1','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','0':'0',
+      '*':'*','#':'#','A':'A','B':'B','C':'C','D':'D'
+    };
+    // 簡易鍵盤支援：按鍵 down 開始、up 停止
+    const keyboardActive = new Map(); // Map<key, fakePointerId>
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toUpperCase();
+      const digit = keyToDigit[k] || keyMap[e.code];
+      if (!digit) return;
+      if (keyboardActive.has(digit)) return;
+      // 產生一個 synthetic pointerId（負數避免衝突）
+      const fakeId = 'kb-' + digit;
+      const btn = document.querySelector(`.pad button[data-digit="${digit}"]`);
+      startDTMF(digit, fakeId, btn);
+      keyboardActive.set(digit, fakeId);
+    });
+    window.addEventListener('keyup', (e) => {
+      const k = e.key.toUpperCase();
+      const digit = keyToDigit[k] || keyMap[e.code];
+      if (!digit) return;
+      const pid = keyboardActive.get(digit);
+      if (pid) {
+        stopDTMF(pid);
+        keyboardActive.delete(digit);
+      }
+    });
+
+    // 當頁面隱藏或卸載時停止所有聲音
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopAll();
+    });
+    window.addEventListener('beforeunload', stopAll);
+  </script>
+</body>
+</html>

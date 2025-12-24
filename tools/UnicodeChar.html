@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>複製 Unicode 字符</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    input, button {
+      padding: 8px;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>輸入 16 進位 Unicode 編碼</h2>
+  <input type="text" id="hexInput" placeholder="0000">
+  <button onclick="copy()">複製字符</button>
+  <p id="result"></p>
+  
+  <script>
+    function copy() {
+      const hex = document.getElementById("hexInput").value.trim();
+      if (!/^[0-9A-Fa-f]{1,6}$/.test(hex)) {
+        alert("請輸入有效的 16 進位編碼");
+        return;
+      }
+
+      const codePoint = parseInt(hex, 16);
+      const char = String.fromCodePoint(codePoint);
+
+      // 建立臨時元素用來複製
+      const tempInput = document.createElement("input");
+      tempInput.value = char;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand("copy");
+      document.body.removeChild(tempInput);
+
+      document.getElementById("result").innerText = `已複製字符 "${char}" !`;
+    }
+  </script>
+
+</body>
+</html>

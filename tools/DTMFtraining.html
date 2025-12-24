@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DTMF 聲音辨識練習</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans TC',sans-serif;margin:20px}
+    h1{font-size:1.4rem}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    input[type=text]{padding:8px;font-size:1rem;width:260px}
+    button{padding:10px 12px;font-size:1rem;border-radius:8px;border:1px solid #ccc;background:#f7f7f7;cursor:pointer}
+    .pad{display:grid;grid-template-columns:repeat(4,64px);gap:8px;margin-top:12px}
+    .key{height:64px;display:flex;align-items:center;justify-content:center;font-weight:700;border-radius:8px;box-shadow:0 1px 0 rgba(0,0,0,0.05)}
+    .key:active{transform:translateY(1px)}
+    .status{margin-top:12px}
+    footer{margin-top:18px;color:#666;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <h1>DTMF 聲音辨識練習</h1>
+  <div class="controls">
+    <label for="target">可出現的數字/符號：</label>
+    <input id="target" type="text" placeholder="輸入 0-9 # * a b c d，例如: 123#*ab" />
+    <button id="start">開始播放</button>
+    <button id="reset">重設</button>
+  </div>
+
+  <div class="pad" role="group" aria-label="DTMF 按鈕面板">
+    <button class="key" data-key="1">1</button>
+    <button class="key" data-key="2">2</button>
+    <button class="key" data-key="3">3</button>
+    <button class="key" data-key="a">A</button>
+    <button class="key" data-key="4">4</button>
+    <button class="key" data-key="5">5</button>
+    <button class="key" data-key="6">6</button>
+    <button class="key" data-key="b">B</button>
+    <button class="key" data-key="7">7</button>
+    <button class="key" data-key="8">8</button>
+    <button class="key" data-key="9">9</button>
+    <button class="key" data-key="c">C</button>
+    <button class="key" data-key="*">*</button>
+    <button class="key" data-key="0">0</button>
+    <button class="key" data-key="#">#</button>
+    <button class="key" data-key="d">D</button>
+  </div>
+
+  <div class="status">
+    <div id="message" style="margin-top:10px;font-weight:700"></div>
+  </div>
+
+  <footer>輸入要練習的符號，按「開始播放」後會隨機撥出其中之一，請點出你聽到的符號。</footer>
+
+  <script>
+    const DTMF = {
+      '1': [697,1209], '2':[697,1336], '3':[697,1477], 'a':[697,1633],
+      '4': [770,1209], '5':[770,1336], '6':[770,1477], 'b':[770,1633],
+      '7': [852,1209], '8':[852,1336], '9':[852,1477], 'c':[852,1633],
+      '*': [941,1209], '0':[941,1336], '#':[941,1477], 'd':[941,1633]
+    };
+
+    const targetInput = document.getElementById('target');
+    const startBtn = document.getElementById('start');
+    const resetBtn = document.getElementById('reset');
+    const messageDiv = document.getElementById('message');
+    const keys = Array.from(document.querySelectorAll('.key'));
+
+    let audioCtx = null;
+    let available = [];
+    let current = null;
+
+    function sanitizeSequence(s){
+      return (s||'').toLowerCase().split('').filter(ch=>Object.keys(DTMF).includes(ch));
+    }
+
+    function playDTMF(key, duration=0.3){
+      if(!DTMF[key]) return;
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const [f1,f2] = DTMF[key];
+      const now = audioCtx.currentTime;
+      const g = audioCtx.createGain();
+      g.gain.value = 0.2;
+      g.connect(audioCtx.destination);
+      const o1 = audioCtx.createOscillator(); o1.type='sine'; o1.frequency.value=f1;
+      const o2 = audioCtx.createOscillator(); o2.type='sine'; o2.frequency.value=f2;
+      o1.connect(g); o2.connect(g);
+      o1.start(now); o2.start(now);
+      o1.stop(now+duration); o2.stop(now+duration);
+      g.gain.setValueAtTime(0.2,now);
+      g.gain.exponentialRampToValueAtTime(0.0001,now+duration);
+    }
+
+    function nextSound(){
+      if(available.length===0){
+        messageDiv.textContent='請先輸入要練習的符號並按開始。';
+        return;
+      }
+      const randomIndex = Math.floor(Math.random()*available.length);
+      current = available[randomIndex];
+      playDTMF(current);
+      messageDiv.textContent='正在播放聲音，請選擇正確的符號。';
+    }
+
+    function handlePress(key){
+      if(!current) { messageDiv.textContent='請先按「開始播放」'; return; }
+      if(key===current){
+        messageDiv.textContent='✅ 正確！';
+      } else {
+        messageDiv.textContent=`❌ 錯誤，剛剛是 ${current.toUpperCase()}。`;
+      }
+      // play next after short delay
+      setTimeout(()=>{ nextSound(); },1000);
+    }
+
+    startBtn.addEventListener('click',()=>{
+      available = sanitizeSequence(targetInput.value);
+      if(available.length===0){
+        messageDiv.textContent='請輸入有效符號（0-9 * # a b c d）';
+        return;
+      }
+      nextSound();
+    });
+
+    resetBtn.addEventListener('click',()=>{
+      available=[]; current=null; messageDiv.textContent=''; targetInput.value='';
+    });
+
+    keys.forEach(btn=>btn.addEventListener('click',()=>handlePress(btn.dataset.key)));
+
+    window.addEventListener('keydown',ev=>{
+      const ch=ev.key.toLowerCase();
+      if(/[0-9a-d*#]/.test(ch)) handlePress(ch);
+    });
+  </script>
+</body>
+</html>

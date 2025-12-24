@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>音頻控制器</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input, select, button {
+      margin: 10px;
+      padding: 5px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>簡易音頻產生器</h2>
+
+<button id="toggleSound">開始/停止播放</button><br>
+
+<label>音高 (Hz)：</label>
+<input type="number" id="frequencyInput" value="440"><br>
+
+<label>波形：</label>
+<select id="waveTypeSelect">
+  <option value="sine">正弦波</option>
+  <option value="square">方波</option>
+  <option value="sawtooth">鋸齒波</option>
+  <option value="triangle">三角波</option>
+</select><br>
+
+<label>倍數：</label>
+<input type="number" id="multiplierInput" value="1.125" step="any"><br>
+
+<button id="multiplyButton">頻率乘上倍數</button>
+<button id="divideButton">頻率除以倍數</button>
+
+<script>
+  let xix = 6;
+  let audioContext = null;
+  let oscillator = null;
+  let isPlaying = false;
+
+  const toggleSoundButton = document.getElementById('toggleSound');
+  const frequencyInput = document.getElementById('frequencyInput');
+  const waveTypeSelect = document.getElementById('waveTypeSelect');
+  const multiplierInput = document.getElementById('multiplierInput');
+  const multiplyButton = document.getElementById('multiplyButton');
+  const divideButton = document.getElementById('divideButton');
+
+  function startOscillator() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    oscillator = audioContext.createOscillator();
+    oscillator.frequency.setValueAtTime(parseFloat(frequencyInput.value), audioContext.currentTime);
+    oscillator.type = waveTypeSelect.value;
+    oscillator.connect(audioContext.destination);
+    oscillator.start();
+  }
+
+  function stopOscillator() {
+    if (oscillator) {
+      oscillator.stop();
+      oscillator.disconnect();
+      oscillator = null;
+    }
+  }
+
+  toggleSoundButton.addEventListener('click', () => {
+    if (!isPlaying) {
+      startOscillator();
+    } else {
+      stopOscillator();
+    }
+    isPlaying = !isPlaying;
+  });
+
+  frequencyInput.addEventListener('input', () => {
+    if (oscillator) {
+      oscillator.frequency.setValueAtTime(parseFloat(frequencyInput.value), audioContext.currentTime);
+    }
+  });
+
+  waveTypeSelect.addEventListener('change', () => {
+    if (oscillator) {
+      oscillator.type = waveTypeSelect.value;
+    }
+  });
+
+  multiplyButton.addEventListener('click', () => {
+    const currentFreq = parseFloat(frequencyInput.value);
+    const multiplier = parseFloat(multiplierInput.value);
+    const newFreq = currentFreq * multiplier;
+    frequencyInput.value = newFreq.toFixed(xix);
+    if (oscillator) {
+      oscillator.frequency.setValueAtTime(newFreq, audioContext.currentTime);
+    }
+  });
+
+  divideButton.addEventListener('click', () => {
+    const currentFreq = parseFloat(frequencyInput.value);
+    const multiplier = parseFloat(multiplierInput.value);
+    const newFreq = currentFreq / multiplier;
+    frequencyInput.value = newFreq.toFixed(xix);
+    if (oscillator) {
+      oscillator.frequency.setValueAtTime(newFreq, audioContext.currentTime);
+    }
+  });
+</script>
+
+</body>
+</html>

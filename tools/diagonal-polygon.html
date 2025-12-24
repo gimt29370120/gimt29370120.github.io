@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>圓周點完全連線 (Canvas)</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --panel:#0b1220；
+    --accent:#38bdf8;
+    --muted:#94a3b8;
+    --point:#ffdf5d;
+  }
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans TC",sans-serif;background:var(--bg);color:#e6eef8;}
+  .wrap{display:flex;flex-direction:column;gap:12px;padding:14px;max-width:1100px;margin:0 auto;}
+  header{display:flex;gap:12px;align-items:center;justify-content:space-between;}
+  h1{font-size:18px;margin:0;}
+  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel);padding:10px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
+  .control{display:flex;flex-direction:column;gap:6px;}
+  label{font-size:13px;color:var(--muted);}
+  .row{display:flex;gap:12px;align-items:center;}
+  input[type="range"]{width:320px}
+  button, .small-toggle{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:6px 10px;border-radius:8px;cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  canvas{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0));border-radius:10px;box-shadow:0 10px 30px rgba(2,6,23,0.6);display:block;width:100%}
+  .meta{font-size:13px;color:var(--muted)}
+  footer{font-size:12px;color:var(--muted);padding:8px 0;}
+  @media (max-width:720px){
+    input[type="range"]{width:180px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>圓周點完全連線（Kₙ） — Canvas 範例</h1>
+    <div class="meta">第一個點在圓周正上方（12 點鐘）</div>
+  </header>
+
+  <div class="controls" role="region" aria-label="controls">
+    <div class="control">
+      <label for="count">點數（n）：<strong id="nDisplay">12</strong></label>
+      <div class="row">
+        <input id="count" type="range" min="1" max="100" value="12" />
+        <button id="randomize" title="隨機改變點數">隨機</button>
+      </div>
+    </div>
+
+    <div class="control">
+      <label>線條寬度：</label>
+      <div class="row">
+        <input id="thick" type="range" min="0.2" max="3.5" step="0.1" value="0.9" />
+        <span class="meta" id="wDisplay">0.9</span>
+      </div>
+    </div>
+
+    <div class="control">
+      <label>顯示選項：</label>
+      <div class="row">
+        <button id="togglePoints" class="small-toggle">切換點顯示</button>
+        <button id="toggleLines" class="small-toggle">切換線條</button>
+        <button id="download" class="small-toggle">下載 PNG</button>
+      </div>
+    </div>
+
+    <div class="control" style="margin-left:auto; text-align:right;">
+      <label>說明</label>
+      <div class="meta">連線數：<span id="edgeCount">0</span> 條</div>
+    </div>
+  </div>
+
+  <canvas id="c" width="900" height="700" aria-label="繪圖畫布"></canvas>
+
+  <footer>點數 n 越大，連線數約為 n(n-1)/2，最多 100 個點時約 4950 條線。可拖動滑桿即時更新。</footer>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  // UI
+  const countEl = document.getElementById('count');
+  const nDisplay = document.getElementById('nDisplay');
+  const thickEl = document.getElementById('thick');
+  const wDisplay = document.getElementById('wDisplay');
+  const togglePointsBtn = document.getElementById('togglePoints');
+  const toggleLinesBtn = document.getElementById('toggleLines');
+  const randomizeBtn = document.getElementById('randomize');
+  const edgeCountEl = document.getElementById('edgeCount');
+  const downloadBtn = document.getElementById('download');
+
+  // State
+  let N = parseInt(countEl.value, 10);
+  let showPoints = true;
+  let showLines = true;
+  let lineWidth = parseFloat(thickEl.value);
+
+  // HiDPI scaling
+  function fitCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // initial sizing (responsive)
+  function resizeCanvasToWindow(){
+    // keep aspect ratio; adapt height based on width
+    const maxW = Math.min(window.innerWidth - 40, 1100);
+    const w = maxW;
+    const h = Math.max(300, Math.round(w * 0.64));
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    fitCanvas();
+    draw();
+  }
+  window.addEventListener('resize', resizeCanvasToWindow);
+  resizeCanvasToWindow();
+
+  // helpers
+  function polarToCartesian(cx, cy, r, angleRad){
+    return [cx + r * Math.cos(angleRad), cy + r * Math.sin(angleRad)];
+  }
+
+  function computePoints(n, cx, cy, r) {
+    const pts = [];
+    if (n <= 0) return pts;
+    // first point at top: angle start = -PI/2 (12 o'clock)
+    const start = -Math.PI / 2;
+    const step = (2 * Math.PI) / n;
+    for (let i = 0; i < n; i++){
+      const a = start + i * step;
+      const [x,y] = polarToCartesian(cx, cy, r, a);
+      pts.push({x, y});
+    }
+    return pts;
+  }
+
+  function clearCanvas(){
+    // solid background to avoid alpha blending artifacts
+    ctx.fillStyle = '#071226';
+    ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+  }
+
+  function draw(){
+    fitCanvas();
+    clearCanvas();
+
+    const W = canvas.width / dpr;
+    const H = canvas.height / dpr;
+    // circle area padding
+    const pad = Math.min(W, H) * 0.08;
+    const cx = W / 2;
+    const cy = H / 2;
+    const r = Math.min(W, H) / 2 - pad;
+
+    // background circle guide
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // compute points
+    const pts = computePoints(N, cx, cy, r);
+
+    // draw lines (connect each point to remaining points)
+    if (showLines) {
+      ctx.save();
+      ctx.lineWidth = Math.max(0.2, lineWidth);
+      ctx.lineCap = 'round';
+      // subtle gradient for visual interest
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, 'rgba(56,189,248,0.55)');
+      g.addColorStop(0.5, 'rgba(99,102,241,0.45)');
+      g.addColorStop(1, 'rgba(236,72,153,0.35)');
+      ctx.strokeStyle = g;
+
+      // Performance: draw with path batching
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const A = pts[i];
+        for (let j = i + 1; j < pts.length; j++) {
+          const B = pts[j];
+          ctx.moveTo(A.x, A.y);
+          ctx.lineTo(B.x, B.y);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // draw points
+    if (showPoints) {
+      ctx.save();
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        // outer halo
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(255,223,93,0.12)';
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        // center
+        ctx.beginPath();
+        ctx.fillStyle = '#ffdf5d';
+        ctx.arc(p.x, p.y, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // draw labels (first point highlight)
+    if (pts.length > 0) {
+      const p0 = pts[0];
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px system-ui, -apple-system, Roboto, "Noto Sans TC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('1', p0.x, p0.y - 8);
+      ctx.restore();
+    }
+
+    // update edge count display
+    const edges = Math.max(0, N * (N - 1) / 2);
+    edgeCountEl.textContent = edges.toLocaleString();
+  }
+
+  // UI bindings
+  function updateFromUI() {
+    N = Math.max(1, Math.min(100, parseInt(countEl.value, 10)));
+    nDisplay.textContent = N;
+    lineWidth = parseFloat(thickEl.value);
+    wDisplay.textContent = lineWidth;
+    draw();
+  }
+
+  countEl.addEventListener('input', () => {
+    updateFromUI();
+  });
+  thickEl.addEventListener('input', () => {
+    updateFromUI();
+  });
+
+  togglePointsBtn.addEventListener('click', () => {
+    showPoints = !showPoints;
+    togglePointsBtn.textContent = showPoints ? '關閉點顯示' : '顯示點';
+    draw();
+  });
+  toggleLinesBtn.addEventListener('click', () => {
+    showLines = !showLines;
+    toggleLinesBtn.textContent = showLines ? '關閉線條' : '顯示線條';
+    draw();
+  });
+
+  randomizeBtn.addEventListener('click', () => {
+    const v = Math.floor(Math.random() * 100) + 1;
+    countEl.value = v;
+    updateFromUI();
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    // generate PNG at device pixel ratio for sharpness
+    const tmpCan = document.createElement('canvas');
+    tmpCan.width = canvas.width;
+    tmpCan.height = canvas.height;
+    const tmpCtx = tmpCan.getContext('2d');
+    // draw existing canvas scaled into tmp
+    tmpCtx.drawImage(canvas, 0, 0, tmpCan.width, tmpCan.height);
+    const url = tmpCan.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `complete_graph_n${N}.png`;
+    a.click();
+  });
+
+  // keyboard accessibility: left/right to change n
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+      countEl.value = Math.max(1, parseInt(countEl.value, 10) - 1);
+      updateFromUI();
+    } else if (e.key === 'ArrowRight') {
+      countEl.value = Math.min(100, parseInt(countEl.value, 10) + 1);
+      updateFromUI();
+    }
+  });
+
+  // initialize UI labels
+  nDisplay.textContent = N;
+  wDisplay.textContent = lineWidth;
+  togglePointsBtn.textContent = '關閉點顯示';
+  toggleLinesBtn.textContent = '關閉線條';
+
+  // initial draw
+  draw();
+})();
+</script>
+</body>
+</html>
