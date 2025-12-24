@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>改變圖片顏色</title>
+  <style>
+    canvas {
+      border: 0px solid #00f;
+      margin-top: 10px;
+    }
+    .l80 {
+      position:relative;left:80px;
+    }
+  </style>
+</head>
+<body>
+  <h2 class="l80">上傳圖片並修改 RGB</h2>
+  <input type="file" id="upload" class="l80" accept="image/*"/><br/>
+  <a class="l80">請輸入公式：</a><br/>
+  <a class="l80">R =</a><input type="text" value="r" id="rFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+  <a class="l80">G =</a><input type="text" value="g" id="gFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+  <a class="l80">B =</a><input type="text" value="b" id="bFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+  <button class="l80" id="applyBtn">套用公式</button><br/>
+  <canvas id="canvas" class="l80"></canvas>
+
+  <script>
+    const uploadInput = document.getElementById('upload');
+    const applyBtn = document.getElementById('applyBtn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let originalImageData = null; // 存放原始圖片像素資料
+
+    uploadInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+
+          // 儲存原始像素資料
+          originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    applyBtn.addEventListener('click', () => {
+      if (!originalImageData) {
+        alert("請先上傳圖片！");
+        return;
+      }
+
+      // 從原始圖片資料複製一份
+      const imageData = new ImageData(
+        new Uint8ClampedArray(originalImageData.data),
+        originalImageData.width,
+        originalImageData.height
+      );
+      const data = imageData.data;
+
+      const rInput = document.getElementById("rFactor");
+      const gInput = document.getElementById("gFactor");
+      const bInput = document.getElementById("bFactor");
+
+      let rFunc, gFunc, bFunc;
+
+      try {
+        rFunc = new Function('r', 'g', 'b', 'return ' + rInput.value);
+        gFunc = new Function('r', 'g', 'b', 'return ' + gInput.value);
+        bFunc = new Function('r', 'g', 'b', 'return ' + bInput.value);
+      } catch (e) {
+        alert("公式錯誤，請檢查輸入！");
+        return;
+      }
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        data[i]     = Math.max(0, Math.min(255, rFunc(r, g, b)));
+        data[i + 1] = Math.max(0, Math.min(255, gFunc(r, g, b)));
+        data[i + 2] = Math.max(0, Math.min(255, bFunc(r, g, b)));
+      }
+
+      // 顯示處理後的結果
+      ctx.putImageData(imageData, 0, 0);
+    });
+  </script>
+</body>
+</html>
