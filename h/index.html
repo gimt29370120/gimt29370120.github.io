@@ -7,6 +7,7 @@
 body{
  margin:0;
  padding:0;
+ background-color:#c3c3c3;
 }
 ul{
  margin:0;
@@ -17,6 +18,7 @@ ul{
  width:95%;
  max-width:1200px;
  margin:0 auto;
+ background-color:#fff;
 }
 .site-header{
  height:340px;
@@ -36,7 +38,6 @@ ul { /* 取消ul預設的內縮及樣式 */
 }
 
 ul.menu-wrap {
- border: #ccc 1px solid;
  display: inline-block;
  font-family: 'Open Sans', Arial, sans-serif;
  font-size: 13px;
@@ -49,11 +50,12 @@ ul.menu-wrap {
 ul.menu-wrap li {
  position: relative;
  white-space: nowrap;
- border:#eee 1px solid;
+
 }
 
 ul.menu-wrap > li {
  float:left; /* 只有第一層是靠左對齊*/
+
 }
 
 ul.menu-wrap a {
@@ -65,13 +67,15 @@ ul.menu-wrap a {
  line-height: 40px;
 }
 
-ul.menu-wrap a:hover { /* 滑鼠滑入按鈕變色*/
- background-color: #eee;
- color: #22c;
-}
 ul.menu-wrap li:hover > a { /* 滑鼠移入次選單上層按鈕保持變色*/
- background-color: #ccc;
+ background-color: #aaa;
  color: #22c;
+ border:#ccc 1px solid;
+}
+ul.menu-wrap a:hover { /* 滑鼠滑入按鈕變色*/
+ background-color: #aaa;
+ color: #22c;
+ border:#fc1 1px solid;
 }
 ul.menu-wrap ul { /*隱藏次選單*/
  display: none;
@@ -115,12 +119,10 @@ ul.menu-wrap li:hover > ul { /* 滑鼠滑入展開次選單*/
 	</ul>
    </li>
   </ul>
-  <p>123</p>
  </header>
+ <main style="height:900px;">
+  <a>這是一段文字</a>
+ </main>
  </div>
 </body>
 </html>
-
-
-
-
