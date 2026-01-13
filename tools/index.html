@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>title</title>
+<style>
+body{
+ margin:0;
+ padding:0;
+ background-color:#c3c3c3;
+}
+.site-wrap{
+ width:95%;
+ max-width:1200px;
+ margin:0 auto;
+ background-color:#fff;
+}
+.site-header{
+ width:100%;
+  aspect-ratio:1/0.28;
+ background-size: 100% auto;
+}
+main{
+ width:95%;
+ max-width:1200px;
+ margin:0 auto;
+ background-color:#fff;
+}
+</style>
+ <script>
+  fetch("../menu-warp.html")
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById("menu-warp").innerHTML = data;
+  });
+  fetch(urlParams.get("p"))
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById("tool").innerHTML = data;
+  });
+ </script>
+</head>
+<body>
+ <div class="site-wrap">
+ <header class="site-header" style="background-image:url(header.png);">
+  <div id="menu-warp"></div>
+ </header>
+ </div>
+ <main style="height:900px;">
+  <a>這是一段文字</a>
+  <div id="tool"></div>
+ </main>
+</body>
+</html>
