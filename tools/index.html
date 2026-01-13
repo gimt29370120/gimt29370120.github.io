@@ -36,14 +36,18 @@ main{
     document.getElementById("menu-warp").innerHTML = data;
   });
   const toolUrl = urlParams.get("p");
-  document.getElementById("munu-waro").src="/tools/"+toolUrl;
+  document.getElementById("tool").src="/tools/"+toolUrl;
   });
  </script>
 </head>
 <body>
  <div class="site-wrap">
  <header class="site-header" style="background-image:url(header.png);">
- <iframe id="menu-warp" allow="
+ </header>
+ </div>
+ <main style="height:900px;">
+  <a>這是一段文字</a>
+  <iframe id="tool" allow="
     fullscreen;
     camera;
     microphone;
@@ -52,11 +56,6 @@ main{
     clipboard-write;
     autoplay
   ">無法載入工具</iframe>
- </header>
- </div>
- <main style="height:900px;">
-  <a>這是一段文字</a>
-  <div id="tool"></div>
  </main>
 </body>
 </html>
