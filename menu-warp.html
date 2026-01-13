@@ -15,6 +15,10 @@ ul { /* 取消ul預設的內縮及樣式 */
  margin: 0;
  padding: 0;
  list-style: none;
+ -webkit-user-select: none; /* Safari */
+ -moz-user-select: none;    /* Firefox */
+ -ms-user-select: none;     /* IE10+/Edge */
+ user-select: none;         /* 標準寫法 (Chrome, Edge, Opera) */
 }
 
 ul.menu-wrap {
