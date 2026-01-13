@@ -9,120 +9,12 @@ body{
  padding:0;
  background-color:#c3c3c3;
 }
-ul{
- margin:0;
- padding:0;
- list-style:none;
-}
-.site-wrap{
- width:95%;
- max-width:1200px;
- margin:0 auto;
- background-color:#fff;
-}
-.site-header{
- width:100%;
-  aspect-ratio:1/0.28;
- background-size: 100% auto;
-}
-li{
- position:relative;
- /*display:flex;*/
- align-items:center;
- justify-content:center;
-}
-
-ul { /* 取消ul預設的內縮及樣式 */
- margin: 0;
- padding: 0;
- list-style: none;
-}
-
-ul.menu-wrap {
- display: inline-block;
- font-family: 'Open Sans', Arial, sans-serif;
- font-size: 13px;
- height:42px;
- background-color:#2222cc;
- color:#ffffff;
- width:100%;
-}
-
-ul.menu-wrap li {
- position: relative;
- white-space: nowrap;
-
-}
-
-ul.menu-wrap > li {
- float:left; /* 只有第一層是靠左對齊*/
-
-}
-
-ul.menu-wrap a {
- background-color: #22c;
- color: #fff;
- display: block;
- padding: 0 30px;
- text-decoration: none;
- line-height: 40px;
-}
-
-ul.menu-wrap li:hover > a { /* 滑鼠移入次選單上層按鈕保持變色*/
- background-color: #aaa;
- color: #22c;
- border:#ccc 1px solid;
-}
-ul.menu-wrap a:hover { /* 滑鼠滑入按鈕變色*/
- background-color: #aaa;
- color: #22c;
- border:#fc1 1px solid;
-}
-ul.menu-wrap ul { /*隱藏次選單*/
- display: none;
-}
-ul.menu-wrap li:hover > ul { /* 滑鼠滑入展開次選單*/
- display: block;
-}
 </style>
 </head>
 <body>
  <div class="site-wrap">
  <header class="site-header" style="background-image:url(dream_tower.png);">
-  <ul class="menu-wrap">
-   <li><a>工具</a>
-    <ul>
-     <li><a href="../tools/"></a></li>
-     <li><a href="../tools/imgColor_v2.html">圖片顏色調整</a></li>
-     <li><a href="../tools/typing.htm">英文打字練習</a></li>
-     <li><a href="../tools/image_shifting.htm">圖片切割</a></li>
-     <li><a href="../tools/Perspective_control.html">透視校正</a></li>
-     <li><a href="../tools/tone-generator.html">頻率播放</a></li>
-     <li><a href="../tools/DTMFToneGenerator">電話音播放</a></li>
-     <li><a href="../tools/DTMFtraining.html">電話音練習</a></li>
-     <li><a href="../tools/diagonal-polygon.html">多邊形對角線生成</a></li>
-     <li><a href="../tools/html2url.html">HTML轉URL</a></li>
-     <li><a href="../tools/UnicodeChar.html">Unicode編碼轉字元</a></li>
-     <li><a href="../tools/voice2color.html">音量大小轉顏色變化</a></li>
-    </ul>
-   </li>
-   <li><a>1</a>
-    <ul>
-	 <li><a>2</a>
-	  <ul>
-	   <li><a>3</a>
-	   </li>
-	   <li><a>3.1</a>
-	   </li>
-	   <li><a>3.2</a>
-	   </li>
-	   <li><a>3.3</a>
-	   </li>
-	  </ul>
-	 </li>
-	</ul>
-   </li>
-  </ul>
+  <iframe src="../menu-map.html"></iframe>
  </header>
  <main style="height:900px;">
   <a>這是一段文字</a>
@@ -130,7 +22,3 @@ ul.menu-wrap li:hover > ul { /* 滑鼠滑入展開次選單*/
  </div>
 </body>
 </html>
-
-
-
-
