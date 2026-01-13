@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>透視校正</title>
 <style>
+  body { touch-action: none; }
   canvas { border:1px solid #333; cursor:crosshair; }
   .row { margin:8px 0; }
 </style>
@@ -14,10 +15,7 @@
   <input type="file" id="upload" accept="image/*">
 </div>
 
-<!-- 顯示用 canvas（含紅點） -->
 <canvas id="viewCanvas"></canvas>
-
-<!-- 隱藏的原始圖片 canvas（無紅點，僅供輸出使用） -->
 <canvas id="srcCanvas" style="display:none"></canvas>
 
 <div class="row">
@@ -37,51 +35,69 @@ const upload = document.getElementById('upload');
 const viewCanvas = document.getElementById('viewCanvas');
 const srcCanvas  = document.getElementById('srcCanvas');
 const outCanvas  = document.getElementById('outputCanvas');
+
 const HANDLE_SIZE = 30;
-const BORDER_COLOR = '#6bbcff';
 
 const vctx = viewCanvas.getContext('2d');
 const sctx = srcCanvas.getContext('2d');
-const octx = outCanvas.getContext('2d');
 
 let img = new Image();
 let points = [];
 let dragging = -1;
 
+/* ---------- 工具 ---------- */
+function getCanvasPos(e) {
+  const r = viewCanvas.getBoundingClientRect();
+  if (e.touches) {
+    return {
+      x: e.touches[0].clientX - r.left,
+      y: e.touches[0].clientY - r.top
+    };
+  }
+  return {
+    x: e.clientX - r.left,
+    y: e.clientY - r.top
+  };
+}
+
+function pickHandle(x, y) {
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const s = HANDLE_SIZE / 2;
+    if (
+      x >= p.x - s && x <= p.x + s &&
+      y >= p.y - s && y <= p.y + s
+    ) return i;
+  }
+  return -1;
+}
+
+/* ---------- 載入圖片 ---------- */
 upload.onchange = e => {
   img.src = URL.createObjectURL(e.target.files[0]);
 };
 
 img.onload = () => {
-  const w = img.width;
-  const h = img.height;
-
-  // canvas 尺寸完全等於圖片尺寸
+  const w = img.width, h = img.height;
   viewCanvas.width = srcCanvas.width = w;
   viewCanvas.height = srcCanvas.height = h;
 
-  // 四角控制點
   points = [
     {x:0,y:0},
     {x:w,y:0},
     {x:w,y:h},
     {x:0,y:h}
   ];
-
   draw();
 };
 
 function draw() {
-  // 圖片
   vctx.clearRect(0,0,viewCanvas.width,viewCanvas.height);
   vctx.drawImage(img,0,0);
 
-  /* ---- 虛線連接四點 ---- */
-  vctx.save();
+  vctx.setLineDash([6,4]);
   vctx.strokeStyle = '#6bbcff';
   vctx.lineWidth = 2;
-  vctx.setLineDash([6,4]);
-
   vctx.beginPath();
   points.forEach((p,i)=>{
     if(i===0) vctx.moveTo(p.x,p.y);
@@ -89,69 +105,65 @@ function draw() {
   });
   vctx.closePath();
   vctx.stroke();
-  vctx.restore();
+  vctx.setLineDash([]);
 
-  /* ---- 拖曳控制點 ---- */
   points.forEach(p=>{
     const s = HANDLE_SIZE;
-    const x = p.x - s/2;
-    const y = p.y - s/2;
-
-    // 半透明白色填充
     vctx.fillStyle = 'rgba(255,255,255,0.6)';
-    vctx.fillRect(x,y,s,s);
-
-    // 淺藍色邊框
+    vctx.fillRect(p.x-s/2,p.y-s/2,s,s);
     vctx.strokeStyle = '#6bbcff';
-    vctx.lineWidth = 2;
-    vctx.strokeRect(x,y,s,s);
+    vctx.strokeRect(p.x-s/2,p.y-s/2,s,s);
   });
 
-  /* 原始 canvas（輸出用） */
   sctx.clearRect(0,0,srcCanvas.width,srcCanvas.height);
   sctx.drawImage(img,0,0);
 }
 
+/* ---------- 滑鼠 ---------- */
+viewCanvas.onmousedown = e => {
+  const {x,y} = getCanvasPos(e);
+  dragging = pickHandle(x,y);
+};
+
 viewCanvas.onmousemove = e => {
-  if(dragging < 0) return;
-  const r = viewCanvas.getBoundingClientRect();
-  points[dragging].x = e.clientX - r.left;
-  points[dragging].y = e.clientY - r.top;
+  if (dragging < 0) return;
+  const {x,y} = getCanvasPos(e);
+  points[dragging].x = x;
+  points[dragging].y = y;
   draw();
 };
 
-viewCanvas.onmousedown = e => {
-  const r = viewCanvas.getBoundingClientRect();
-  const x = e.clientX - r.left;
-  const y = e.clientY - r.top;
+window.onmouseup = () => dragging = -1;
 
-  points.forEach((p,i)=>{
-    const s = HANDLE_SIZE;
-    if (
-      x >= p.x - s/2 && x <= p.x + s/2 &&
-      y >= p.y - s/2 && y <= p.y + s/2
-    ) {
-      dragging = i;
-    }
-  });
-};
+/* ---------- 觸控 ---------- */
+viewCanvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const {x,y} = getCanvasPos(e);
+  dragging = pickHandle(x,y);
+});
 
+viewCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (dragging < 0) return;
+  const {x,y} = getCanvasPos(e);
+  points[dragging].x = x;
+  points[dragging].y = y;
+  draw();
+});
 
-viewCanvas.onmouseup = ()=> dragging = -1;
+viewCanvas.addEventListener('touchend', () => dragging = -1);
 
-/* --- 開始處理 --- */
+/* ---------- 處理 ---------- */
 document.getElementById('process').onclick = () => {
   const [rw,rh] = document.getElementById('ratio').value.split(':').map(Number);
   const outW = 600;
   const outH = Math.round(outW * rh / rw);
-
   outCanvas.width = outW;
   outCanvas.height = outH;
-
   perspectiveTransform(srcCanvas, points, outCanvas);
 };
 
-/* --- 透視校正（四邊形 → 矩形）--- */
+/* ---------- 真正透視校正 ---------- */
 function perspectiveTransform(srcCanvas, srcPts, dstCanvas) {
   const sw = srcCanvas.width, sh = srcCanvas.height;
   const dw = dstCanvas.width, dh = dstCanvas.height;
@@ -159,36 +171,73 @@ function perspectiveTransform(srcCanvas, srcPts, dstCanvas) {
   const src = srcCanvas.getContext('2d').getImageData(0,0,sw,sh);
   const dst = dstCanvas.getContext('2d').createImageData(dw,dh);
 
+  const dstPts = [
+    {x:0,y:0},{x:dw,y:0},{x:dw,y:dh},{x:0,y:dh}
+  ];
+
+  const H = computeHomography(srcPts, dstPts);
+  const Hinv = invert3x3(H);
+
   for(let y=0;y<dh;y++){
     for(let x=0;x<dw;x++){
-      const u = x / dw;
-      const v = y / dh;
+      const w = Hinv[6]*x + Hinv[7]*y + Hinv[8];
+      const sx = (Hinv[0]*x + Hinv[1]*y + Hinv[2]) / w;
+      const sy = (Hinv[3]*x + Hinv[4]*y + Hinv[5]) / w;
 
-      const sx =
-        (1-u)*(1-v)*srcPts[0].x +
-        u*(1-v)*srcPts[1].x +
-        u*v*srcPts[2].x +
-        (1-u)*v*srcPts[3].x;
-
-      const sy =
-        (1-u)*(1-v)*srcPts[0].y +
-        u*(1-v)*srcPts[1].y +
-        u*v*srcPts[2].y +
-        (1-u)*v*srcPts[3].y;
-
-      const ix = Math.floor(sx);
-      const iy = Math.floor(sy);
+      const ix = sx|0, iy = sy|0;
       if(ix<0||iy<0||ix>=sw||iy>=sh) continue;
 
       const si = (iy*sw+ix)*4;
       const di = (y*dw+x)*4;
-      for(let k=0;k<4;k++)
-        dst.data[di+k] = src.data[si+k];
+      for(let k=0;k<4;k++) dst.data[di+k]=src.data[si+k];
     }
   }
   dstCanvas.getContext('2d').putImageData(dst,0,0);
 }
-</script>
 
+/* ---------- 數學 ---------- */
+function computeHomography(src, dst) {
+  const A=[],b=[];
+  for(let i=0;i<4;i++){
+    const {x,y}=src[i],{x:X,y:Y}=dst[i];
+    A.push([x,y,1,0,0,0,-x*X,-y*X]); b.push(X);
+    A.push([0,0,0,x,y,1,-x*Y,-y*Y]); b.push(Y);
+  }
+  const h=solve(A,b);
+  return [h[0],h[1],h[2],h[3],h[4],h[5],h[6],h[7],1];
+}
+
+function solve(A,b){
+  const n=b.length;
+  for(let i=0;i<n;i++){
+    let m=i;
+    for(let j=i+1;j<n;j++)
+      if(Math.abs(A[j][i])>Math.abs(A[m][i])) m=j;
+    [A[i],A[m]]=[A[m],A[i]];
+    [b[i],b[m]]=[b[m],b[i]];
+    for(let j=i+1;j<n;j++){
+      const f=A[j][i]/A[i][i];
+      for(let k=i;k<n;k++) A[j][k]-=f*A[i][k];
+      b[j]-=f*b[i];
+    }
+  }
+  const x=Array(n);
+  for(let i=n-1;i>=0;i--){
+    x[i]=b[i];
+    for(let j=i+1;j<n;j++) x[i]-=A[i][j]*x[j];
+    x[i]/=A[i][i];
+  }
+  return x;
+}
+
+function invert3x3(m){
+  const[a,b,c,d,e,f,g,h,i]=m;
+  const A=e*i-f*h, B=c*h-b*i, C=b*f-c*e;
+  const D=f*g-d*i, E=a*i-c*g, F=c*d-a*f;
+  const G=d*h-e*g, H=b*g-a*h, I=a*e-b*d;
+  const det=a*A+b*D+c*G;
+  return [A/det,B/det,C/det,D/det,E/det,F/det,G/det,H/det,I/det];
+}
+</script>
 </body>
 </html>
