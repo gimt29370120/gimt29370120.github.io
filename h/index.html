@@ -26,14 +26,6 @@ main{
  margin:0 auto;
  background-color:#fff;
 }
-</style>
- <script>
-  fetch("/menu-warp.html")
-  .then(response => response.text())
-  .then(data => {
-    document.getElementById('menu-warp').innerHTML = data;
-  });
- </script>
 </head>
 <body>
  <div class="site-wrap">
@@ -44,5 +36,14 @@ main{
  <main style="height:900px;">
   <a>這是一段文字</a>
  </main>
+ </style>
+ <script>
+  fetch("/menu-warp.html")
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById('menu-warp').innerHTML = data;
+  });
+ </script>
 </body>
 </html>
+
