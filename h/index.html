@@ -10,16 +10,24 @@ body{
  background-color:#c3c3c3;
 }
 </style>
+ <script>
+  fetch("../menu-warp.html")
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById('menu-warp').innerHTML = data;
+  });
+ </script>
 </head>
 <body>
  <div class="site-wrap">
  <header class="site-header" style="background-image:url(dream_tower.png);">
-  <iframe src="../menu-warp.html"></iframe>
+  <div id="menu-warp"></div>
  </header>
+ </div>
  <main style="height:900px;">
   <a>這是一段文字</a>
  </main>
- </div>
 </body>
 </html>
+
 
