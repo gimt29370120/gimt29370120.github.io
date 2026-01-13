@@ -34,17 +34,20 @@ main{
   <div id="menu-warp"></div>
  </header>
  </div>
- <main style="height:900px;">
-  <a>這是一段文字</a>
+ <main style="min-height:900px;">
+  <div id="text"></div>
  </main>
  <script>
   fetch("/menu-warp.html")
   .then(response => response.text())
   .then(data => {
-    document.getElementById('menu-warp').innerHTML = data;
+    document.getElementById("menu-warp").innerHTML = data;
+  });
+  fetch("/h/homepage.html")
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById("text").innerHTML = data;
   });
  </script>
 </body>
 </html>
-
-
