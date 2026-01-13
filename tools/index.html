@@ -35,10 +35,26 @@ main{
   .then(data => {
     document.getElementById("menu-warp").innerHTML = data;
   });
-  fetch(urlParams.get("p"))
-  .then(response => response.text())
+  const toolUrl = urlParams.get("p");
+  if (toolUrl) {
+  fetch(toolUrl)
+    .then(res => res.text())
+    .then(data => {
+      const range = document.createRange();
+      const fragment = range.createContextualFragment(data);
+      document.getElementById("tool").appendChild(fragment);
+    });
+  }
+  const toolContainer = document.getElementById("tool");
+  const shadow = toolContainer.attachShadow({ mode: "open" }); // 建立隔離層
+
+  fetch(toolUrl)
+  .then(res => res.text())
   .then(data => {
-    document.getElementById("tool").innerHTML = data;
+    // 將內容插入影子 DOM，樣式即被隔離
+    shadow.innerHTML = data; 
+    
+    // 注意：Shadow DOM 中的腳本仍需手動執行，可參考前述 fragment 方法
   });
  </script>
 </head>
