@@ -2,40 +2,22 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>透視校正</title>
+<title>透視校正（正確版）</title>
 <style>
-  body { margin: 0; font-family: sans-serif; }
-  canvas {
-    border: 1px solid #333;
-    max-width: 100%;
-    height: auto;
-    touch-action: none;
-    display: block;
-    margin-bottom: 8px;
-  }
-  .row { margin: 8px 0; }
+  body { margin:0; font-family:sans-serif; }
+  canvas { border:1px solid #333; display:block; margin:8px auto; }
 </style>
 </head>
 <body>
 
-<div class="row">
-  <input type="file" id="upload" accept="image/*">
-</div>
+<input type="file" id="upload" accept="image/*">
 
 <canvas id="viewCanvas"></canvas>
 <canvas id="srcCanvas" style="display:none"></canvas>
 
-<div class="row">
-  輸出比例：
-  <input id="ratio" value="1:1" style="width:60px">
-</div>
+<button id="process">開始處理</button>
+<button id="download">下載</button>
 
-<div class="row">
-  <button id="process">開始處理</button>
-  <button id="download">下載圖片</button>
-</div>
-
-<h3>輸出圖片</h3>
 <canvas id="outputCanvas"></canvas>
 
 <script>
@@ -48,28 +30,19 @@ const vctx = viewCanvas.getContext('2d');
 const sctx = srcCanvas.getContext('2d');
 const octx = outCanvas.getContext('2d');
 
-const HANDLE_SIZE = 30;
-const HIT_SIZE = 60; // 感應區，比畫面大
+viewCanvas.width  = 700;//1000
+viewCanvas.height = 700;//700
+
+const UI_SIZE = 30;
+const HIT_SIZE = 40;
 
 let img = new Image();
 let points = [];
 let dragging = -1;
 
-/* ===== 座標轉換（你原本那組，保留）===== */
-function scaleX() {
-  return viewCanvas.width / viewCanvas.getBoundingClientRect().width;
-}
-function scaleY() {
-  return viewCanvas.height / viewCanvas.getBoundingClientRect().height;
-}
-function getCanvasPos(e) {
-  const r = viewCanvas.getBoundingClientRect();
-  const t = e.touches ? e.touches[0] : e;
-  return {
-    x: (t.clientX - r.left) * scaleX(),
-    y: (t.clientY - r.top) * scaleY()
-  };
-}
+let viewScale = 1;
+let offsetX = 0;
+let offsetY = 0;
 
 /* ===== 載入圖片 ===== */
 upload.onchange = e => {
@@ -77,32 +50,176 @@ upload.onchange = e => {
 };
 
 img.onload = () => {
-  const w = img.width;
-  const h = img.height;
-
-  viewCanvas.width = srcCanvas.width = w;
-  viewCanvas.height = srcCanvas.height = h;
+  srcCanvas.width = img.width;
+  srcCanvas.height = img.height;
+  sctx.drawImage(img,0,0);
 
   points = [
     {x:0,y:0},
-    {x:w,y:0},
-    {x:w,y:h},
-    {x:0,y:h}
+    {x:img.width,y:0},
+    {x:img.width,y:img.height},
+    {x:0,y:img.height}
   ];
 
   draw();
 };
 
-/* ===== 繪製 ===== */
+/* ===== 畫面繪製 ===== */
 function draw() {
   vctx.clearRect(0,0,viewCanvas.width,viewCanvas.height);
-  vctx.drawImage(img,0,0);
 
-  const sx = scaleX();
-  const sy = scaleY();
+  viewScale = Math.min(
+    viewCanvas.width / img.width,
+    viewCanvas.height / img.height
+  );
 
-  vctx.save();
-  vctx.scale(1/sx, 1/sy);
+  offsetX = (viewCanvas.width - img.width * viewScale) / 2;
+  offsetY = (viewCanvas.height - img.height * viewScale) / 2;
+
+  vctx.drawImage(
+    img,
+    offsetX, offsetY,
+    img.width * viewScale,
+    img.height * viewScale
+  );
+
+  drawUI();
+}
+
+function drawUI() {
+  vctx.strokeStyle = '#6bbcff';
+  vctx.lineWidth = 2;
+  vctx.setLineDash([6,4]);
+
+  vctx.beginPath();
+  points.forEach((p,i)=>{
+    const x = offsetX + p.x * viewScale;
+    const y = offsetY + p.y * viewScale;
+    if(i===0) vctx.moveTo(x,y);
+    else vctx.lineTo(x,y);
+  });
+  vctx.closePath();
+  vctx.stroke();
+  vctx.setLineDash([]);
+
+  points.forEach(p=>{
+    const x = offsetX + p.x * viewScale;
+    const y = offsetY + p.y * viewScale;
+
+    vctx.fillStyle = 'rgba(255,255,255,0.7)';
+    vctx.fillRect(x-UI_SIZE/2, y-UI_SIZE/2, UI_SIZE, UI_SIZE);
+    vctx.strokeRect(x-UI_SIZE/2, y-UI_SIZE/2, UI_SIZE, UI_SIZE);
+  });
+}
+
+/* ===== 拖曳（滑鼠＋觸控）===== */
+function getViewPos(e){
+  const r = viewCanvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x:t.clientX-r.left, y:t.clientY-r.top };
+}
+
+viewCanvas.addEventListener('mousedown', startDrag);
+viewCanvas.addEventListener('touchstart', startDrag, {passive:false});
+viewCanvas.addEventListener('mousemove', moveDrag);
+viewCanvas.addEventListener('touchmove', moveDrag, {passive:false});
+viewCanvas.addEventListener('mouseup', ()=>dragging=-1);
+viewCanvas.addEventListener('touchend', ()=>dragging=-1);
+
+function startDrag(e){
+  const {x,y} = getViewPos(e);
+  dragging = -1;
+
+  points.forEach((p,i)=>{
+    const px = offsetX + p.x * viewScale;
+    const py = offsetY + p.y * viewScale;
+
+    if (
+      x>=px-HIT_SIZE/2 && x<=px+HIT_SIZE/2 &&
+      y>=py-HIT_SIZE/2 && y<=py+HIT_SIZE/2
+    ) dragging = i;
+  });
+}
+
+function moveDrag(e){
+  if(dragging<0) return;
+  e.preventDefault();
+
+  const {x,y} = getViewPos(e);
+  points[dragging].x = (x-offsetX)/viewScale;
+  points[dragging].y = (y-offsetY)/viewScale;
+  draw();
+}
+
+/* ===== Homography ===== */
+function computeH(src,dst){
+  const A=[];
+  for(let i=0;i<4;i++){
+    const {x,y}=src[i], {x:u,y:v}=dst[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y,u]);
+    A.push([0,0,0,x,y,1,-v*x,-v*y,v]);
+  }
+  return gaussianSolve(A).slice(0,9);
+}
+
+function gaussianSolve(m){
+  for(let i=0;i<8;i++){
+    let max=i;
+    for(let j=i+1;j<8;j++)
+      if(Math.abs(m[j][i])>Math.abs(m[max][i])) max=j;
+    [m[i],m[max]]=[m[max],m[i]];
+    for(let j=i+1;j<8;j++){
+      const f=m[j][i]/m[i][i];
+      for(let k=i;k<9;k++) m[j][k]-=f*m[i][k];
+    }
+  }
+  const x=Array(9).fill(1);
+  for(let i=7;i>=0;i--){
+    let s=m[i][8];
+    for(let j=i+1;j<8;j++) s-=m[i][j]*x[j];
+    x[i]=s/m[i][i];
+  }
+  return x;
+}
+
+/* ===== 透視校正 ===== */
+document.getElementById('process').onclick = ()=>{
+  const w=800,h=800;
+  outCanvas.width=w; outCanvas.height=h;
+
+  const H = computeH(
+    [
+      {x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}
+    ],
+    points
+  );
+
+  const src = sctx.getImageData(0,0,img.width,img.height);
+  const dst = octx.createImageData(w,h);
+
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const d=H[6]*x+H[7]*y+1;
+    const sx=(H[0]*x+H[1]*y+H[2])/d;
+    const sy=(H[3]*x+H[4]*y+H[5])/d;
+    const ix=Math.floor(sx), iy=Math.floor(sy);
+    if(ix<0||iy<0||ix>=img.width||iy>=img.height) continue;
+    const si=(iy*img.width+ix)*4;
+    const di=(y*w+x)*4;
+    for(let k=0;k<4;k++) dst.data[di+k]=src.data[si+k];
+  }
+  octx.putImageData(dst,0,0);
+};
+
+/* ===== 下載 ===== */
+document.getElementById('download').onclick=()=>{
+  const a=document.createElement('a');
+  a.download='output.png';
+  a.href=outCanvas.toDataURL();
+  a.click();
+};
+</script>
+</body>
+</html>  vctx.scale(1/sx, 1/sy);
 
   const drawPts = points.map(p=>({
     x: p.x * sx,
@@ -228,4 +345,3 @@ document.getElementById('download').onclick = ()=>{
 </script>
 </body>
 </html>
-
