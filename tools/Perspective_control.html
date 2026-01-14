@@ -81,32 +81,6 @@ img.onload = () => {
   draw();
 };
 
-function draw() {
-  vctx.clearRect(0,0,viewCanvas.width,viewCanvas.height);
-  vctx.drawImage(img,0,0);
-
-  vctx.setLineDash([6,4]);
-  vctx.strokeStyle = '#6bbcff';
-  vctx.lineWidth = 2;
-  vctx.beginPath();
-  points.forEach((p,i)=>{
-    if(i===0) vctx.moveTo(p.x,p.y);
-    else vctx.lineTo(p.x,p.y);
-  });
-  vctx.closePath();
-  vctx.stroke();
-  vctx.setLineDash([]);
-
-  points.forEach(p=>{
-    vctx.fillStyle = 'rgba(255,255,255,0.7)';
-    vctx.fillRect(p.x-15,p.y-15,30,30);
-    vctx.strokeStyle='#6bbcff';
-    vctx.strokeRect(p.x-15,p.y-15,30,30);
-  });
-
-  sctx.clearRect(0,0,srcCanvas.width,srcCanvas.height);
-  sctx.drawImage(img,0,0);
-}
 
 /* ===== 滑鼠 + 觸控（僅 canvas 內） ===== */
 function pick(x,y){
@@ -123,7 +97,46 @@ viewCanvas.addEventListener('mousemove',e=>{
 });
 window.addEventListener('mouseup',()=>dragging=-1);
 
-viewCanvas.addEventListener('touchstart',e=>{
+viewCanvas.addEventListenfunction draw() {
+  vctx.clearRect(0,0,viewCanvas.width,viewCanvas.height);
+  vctx.drawImage(img,0,0);
+
+  const uiSize = 30;
+  const sx = scaleX();
+  const sy = scaleY();
+
+  /* ---- 虛線四邊形 ---- */
+  vctx.setLineDash([6 * sx, 4 * sx]);
+  vctx.strokeStyle = '#6bbcff';
+  vctx.lineWidth = 2 * sx;
+
+  vctx.beginPath();
+  points.forEach((p,i)=>{
+    if(i===0) vctx.moveTo(p.x,p.y);
+    else vctx.lineTo(p.x,p.y);
+  });
+  vctx.closePath();
+  vctx.stroke();
+  vctx.setLineDash([]);
+
+  /* ---- 四角控制方塊 ---- */
+  points.forEach(p=>{
+    const w = uiSize * sx;
+    const h = uiSize * sy;
+
+    vctx.fillStyle = 'rgba(255,255,255,0.7)';
+    vctx.fillRect(p.x-w/2, p.y-h/2, w, h);
+
+    vctx.strokeStyle='#6bbcff';
+    vctx.lineWidth = 2 * sx;
+    vctx.strokeRect(p.x-w/2, p.y-h/2, w, h);
+  });
+
+  sctx.clearRect(0,0,srcCanvas.width,srcCanvas.height);
+  sctx.drawImage(img,0,0);
+}
+
+er('touchstart',e=>{
   const p=getCanvasPos(e); dragging=pick(p.x,p.y);
   if(dragging>=0) e.preventDefault();
 });
@@ -221,3 +234,4 @@ function invert3x3(m){
 </script>
 </body>
 </html>
+
