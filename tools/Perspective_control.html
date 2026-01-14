@@ -5,7 +5,7 @@
 <title>透視校正</title>
 <style>
   body { margin:0; font-family:sans-serif; }
-  canvas { border:1px solid #333; display:block; margin:8px auto; }
+  canvas { border:1px solid #333; display:block; }
 </style>
 </head>
 <body>
@@ -23,7 +23,7 @@
 <button id="process">開始處理</button>
 <button id="download">下載</button>
 
-<canvas id="outputCanvas"></canvas>
+<canvas id="outputCanvas" style="max-width:100%;min-width:700;"></canvas>
 
 <script>
 const upload = document.getElementById('upload');
@@ -35,8 +35,8 @@ const vctx = viewCanvas.getContext('2d');
 const sctx = srcCanvas.getContext('2d');
 const octx = outCanvas.getContext('2d');
 
-viewCanvas.width  = 700;//1000
-viewCanvas.height = 700;//700
+//viewCanvas.width  = 700;//1000
+//viewCanvas.height = 700;//700
 
 const UI_SIZE = 30;
 const HIT_SIZE = 40;
@@ -55,17 +55,25 @@ upload.onchange = e => {
 };
 
 img.onload = () => {
-  srcCanvas.width = img.width;
-  srcCanvas.height = img.height;
-  sctx.drawImage(img,0,0);
-
+  const MAX = Math.min(Math.max(window.innerWidth*0.6, 700), window.innerWidth);
+  const iw = img.width;
+  const ih = img.height;
+  if (iw >= ih) {
+    viewCanvas.width  = MAX;
+    viewCanvas.height = Math.round(MAX * ih / iw);
+  } else {
+    viewCanvas.height = MAX;
+    viewCanvas.width  = Math.round(MAX * iw / ih);
+  }
+  srcCanvas.width = iw;
+  srcCanvas.height = ih;
+  sctx.drawImage(img, 0, 0);
   points = [
-    {x:0,y:0},
-    {x:img.width,y:0},
-    {x:img.width,y:img.height},
-    {x:0,y:img.height}
+    { x: 0,  y: 0 },
+    { x: iw, y: 0 },
+    { x: iw, y: ih },
+    { x: 0,  y: ih }
   ];
-
   draw();
 };
 
@@ -242,3 +250,4 @@ document.getElementById('download').onclick=()=>{
 </script>
 </body>
 </html>
+
