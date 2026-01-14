@@ -49,6 +49,7 @@ const sctx = srcCanvas.getContext('2d');
 const octx = outCanvas.getContext('2d');
 
 const HANDLE_SIZE = 30;
+const HIT_SIZE = 60; // 感應區，比畫面大
 
 let img = new Image();
 let points = [];
@@ -141,10 +142,10 @@ function startDrag(e){
   dragging = -1;
   points.forEach((p,i)=>{
     if (
-      x >= p.x - HANDLE_SIZE/2 &&
-      x <= p.x + HANDLE_SIZE/2 &&
-      y >= p.y - HANDLE_SIZE/2 &&
-      y <= p.y + HANDLE_SIZE/2
+      x >= p.x - HIT_SIZE/2 &&
+      x <= p.x + HIT_SIZE/2 &&
+      y >= p.y - HIT_SIZE/2 &&
+      y <= p.y + HIT_SIZE/2
     ) dragging = i;
   });
 }
@@ -227,3 +228,4 @@ document.getElementById('download').onclick = ()=>{
 </script>
 </body>
 </html>
+
