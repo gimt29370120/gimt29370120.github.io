@@ -81,23 +81,7 @@ img.onload = () => {
   draw();
 };
 
-
-/* ===== 滑鼠 + 觸控（僅 canvas 內） ===== */
-function pick(x,y){
-  return points.findIndex(p=>Math.abs(p.x-x)<20 && Math.abs(p.y-y)<20);
-}
-
-viewCanvas.addEventListener('mousedown',e=>{
-  const p=getCanvasPos(e); dragging=pick(p.x,p.y);
-});
-viewCanvas.addEventListener('mousemove',e=>{
-  if(dragging<0) return;
-  const p=getCanvasPos(e);
-  points[dragging]=p; draw();
-});
-window.addEventListener('mouseup',()=>dragging=-1);
-
-viewCanvas.addEventListenfunction draw() {
+function draw() {
   vctx.clearRect(0,0,viewCanvas.width,viewCanvas.height);
   vctx.drawImage(img,0,0);
 
@@ -136,7 +120,22 @@ viewCanvas.addEventListenfunction draw() {
   sctx.drawImage(img,0,0);
 }
 
-er('touchstart',e=>{
+/* ===== 滑鼠 + 觸控（僅 canvas 內） ===== */
+function pick(x,y){
+  return points.findIndex(p=>Math.abs(p.x-x)<20 && Math.abs(p.y-y)<20);
+}
+
+viewCanvas.addEventListener('mousedown',e=>{
+  const p=getCanvasPos(e); dragging=pick(p.x,p.y);
+});
+viewCanvas.addEventListener('mousemove',e=>{
+  if(dragging<0) return;
+  const p=getCanvasPos(e);
+  points[dragging]=p; draw();
+});
+window.addEventListener('mouseup',()=>dragging=-1);
+
+viewCanvas.addEventListener('touchstart',e=>{
   const p=getCanvasPos(e); dragging=pick(p.x,p.y);
   if(dragging>=0) e.preventDefault();
 });
@@ -234,4 +233,3 @@ function invert3x3(m){
 </script>
 </body>
 </html>
-
