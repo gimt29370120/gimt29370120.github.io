@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>透視校正（正確版）</title>
+<title>透視校正</title>
 <style>
   body { margin:0; font-family:sans-serif; }
   canvas { border:1px solid #333; display:block; margin:8px auto; }
@@ -215,131 +215,6 @@ document.getElementById('download').onclick=()=>{
   const a=document.createElement('a');
   a.download='output.png';
   a.href=outCanvas.toDataURL();
-  a.click();
-};
-</script>
-</body>
-</html>  vctx.scale(1/sx, 1/sy);
-
-  const drawPts = points.map(p=>({
-    x: p.x * sx,
-    y: p.y * sy
-  }));
-
-  /* 虛線 */
-  vctx.setLineDash([6,4]);
-  vctx.lineWidth = 2;
-  vctx.strokeStyle = '#6bbcff';
-  vctx.beginPath();
-  drawPts.forEach((p,i)=>{
-    if(i===0) vctx.moveTo(p.x,p.y);
-    else vctx.lineTo(p.x,p.y);
-  });
-  vctx.closePath();
-  vctx.stroke();
-  vctx.setLineDash([]);
-
-  /* 控制點 */
-  drawPts.forEach(p=>{
-    vctx.fillStyle='rgba(255,255,255,0.7)';
-    vctx.fillRect(p.x-15,p.y-15,30,30);
-    vctx.strokeStyle='#6bbcff';
-    vctx.strokeRect(p.x-15,p.y-15,30,30);
-  });
-
-  vctx.restore();
-
-  sctx.clearRect(0,0,srcCanvas.width,srcCanvas.height);
-  sctx.drawImage(img,0,0);
-}
-
-/* ===== 拖曳事件（滑鼠＋觸控）===== */
-function startDrag(e){
-  const {x,y} = getCanvasPos(e);
-  dragging = -1;
-  points.forEach((p,i)=>{
-    if (
-      x >= p.x - HIT_SIZE/2 &&
-      x <= p.x + HIT_SIZE/2 &&
-      y >= p.y - HIT_SIZE/2 &&
-      y <= p.y + HIT_SIZE/2
-    ) dragging = i;
-  });
-}
-
-function moveDrag(e){
-  if(dragging < 0) return;
-  e.preventDefault();
-  const {x,y} = getCanvasPos(e);
-  points[dragging].x = x;
-  points[dragging].y = y;
-  draw();
-}
-
-function endDrag(){ dragging = -1; }
-
-viewCanvas.addEventListener('mousedown', startDrag);
-viewCanvas.addEventListener('mousemove', moveDrag);
-viewCanvas.addEventListener('mouseup', endDrag);
-
-viewCanvas.addEventListener('touchstart', startDrag, {passive:false});
-viewCanvas.addEventListener('touchmove', moveDrag, {passive:false});
-viewCanvas.addEventListener('touchend', endDrag);
-
-/* ===== 透視校正 ===== */
-document.getElementById('process').onclick = () => {
-  const [rw,rh] = document.getElementById('ratio').value.split(':').map(Number);
-  const outW = 800;
-  const outH = Math.round(outW * rh / rw);
-
-  outCanvas.width = outW;
-  outCanvas.height = outH;
-
-  perspectiveTransform(srcCanvas, points, outCanvas);
-};
-
-function perspectiveTransform(srcCanvas, srcPts, dstCanvas) {
-  const sw = srcCanvas.width, sh = srcCanvas.height;
-  const dw = dstCanvas.width, dh = dstCanvas.height;
-
-  const src = sctx.getImageData(0,0,sw,sh);
-  const dst = octx.createImageData(dw,dh);
-
-  for(let y=0;y<dh;y++){
-    for(let x=0;x<dw;x++){
-      const u = x / dw;
-      const v = y / dh;
-
-      const sx =
-        (1-u)*(1-v)*srcPts[0].x +
-        u*(1-v)*srcPts[1].x +
-        u*v*srcPts[2].x +
-        (1-u)*v*srcPts[3].x;
-
-      const sy =
-        (1-u)*(1-v)*srcPts[0].y +
-        u*(1-v)*srcPts[1].y +
-        u*v*srcPts[2].y +
-        (1-u)*v*srcPts[3].y;
-
-      const ix = Math.floor(sx);
-      const iy = Math.floor(sy);
-      if(ix<0||iy<0||ix>=sw||iy>=sh) continue;
-
-      const si = (iy*sw+ix)*4;
-      const di = (y*dw+x)*4;
-      for(let k=0;k<4;k++)
-        dst.data[di+k] = src.data[si+k];
-    }
-  }
-  octx.putImageData(dst,0,0);
-}
-
-/* ===== 下載 ===== */
-document.getElementById('download').onclick = ()=>{
-  const a = document.createElement('a');
-  a.download = 'output.png';
-  a.href = outCanvas.toDataURL();
   a.click();
 };
 </script>
