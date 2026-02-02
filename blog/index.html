@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>網頁小工具</title>
+<title>頁面</title>
 <style>
 body{
  margin:0;
@@ -36,26 +36,20 @@ main{
  </header>
  </div>
  <main style="height:1400px;">
-  <a>以下工具多由Chatgpt生成後手動進行少部份修改</a>
-  <iframe id="tool" allow="
-    fullscreen;
-    camera;
-    microphone;
-    geolocation;
-    clipboard-read;
-    clipboard-write;
-    autoplay
-  " style="width:100%;height:100%;">無法載入工具</iframe>
+  <div id="index" style="width:100%;height:100%;"></div>
  </main>
  <script>
   fetch("/menu-warp.html")
   .then(response => response.text())
   .then(data => {
-    document.getElementById('menu-warp').innerHTML = data;
+    document.getElementById("menu-warp").innerHTML = data;
   });
   const urlParams = new URLSearchParams(window.location.search);
-  const toolUrl = urlParams.get("p");
-  document.getElementById("tool").src="/tools/"+toolUrl;
+  fetch("/blog/"+urlParams.get("p")+".htm")
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById("index").innerHTML = data;
+  });
  </script>
 </body>
 </html>
