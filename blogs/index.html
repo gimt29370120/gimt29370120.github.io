@@ -45,7 +45,7 @@ main{
     document.getElementById("menu-warp").innerHTML = data;
   });
   const urlParams = new URLSearchParams(window.location.search);
-  fetch("/blog/"+urlParams.get("p")+".htm")
+  fetch("/blogs/"+urlParams.get("p")+".htm")
   .then(response => response.text())
   .then(data => {
     document.getElementById("index").innerHTML = data;
