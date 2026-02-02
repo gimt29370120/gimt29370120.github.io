@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>網頁小工具</title>
+<style>
+body{
+ margin:0;
+ padding:0;
+ background-color:#c3c3c3;
+}
+.site-wrap{
+ width:95%;
+ max-width:1200px;
+ margin:0 auto;
+ background-color:#fff;
+ z-index:1001;
+}
+.site-header{
+ width:100%;
+  aspect-ratio:1/0.28;
+ background-size: 100% auto;
+}
+main{
+ width:95%;
+ max-width:1200px;
+ margin:0 auto;
+ background-color:#fff;
+}
+</style>
+</head>
+<body>
+ <div class="site-wrap">
+ <header class="site-header" style="background-image:url(header.jpg);">
+  <div id="menu-warp"></div>
+ </header>
+ </div>
+ <main style="height:1400px;">
+  <a>以下工具多由Chatgpt生成後手動進行少部份修改</a>
+  <iframe id="tool" allow="
+    fullscreen;
+    camera;
+    microphone;
+    geolocation;
+    clipboard-read;
+    clipboard-write;
+    autoplay
+  " style="width:100%;height:100%;">無法載入工具</iframe>
+ </main>
+ <script>
+  fetch("/menu-warp.html")
+  .then(response => response.text())
+  .then(data => {
+    document.getElementById('menu-warp').innerHTML = data;
+  });
+  const urlParams = new URLSearchParams(window.location.search);
+  const toolUrl = urlParams.get("p");
+  document.getElementById("tool").src="/tools/"+toolUrl;
+ </script>
+</body>
+</html>
