@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-TW"><head>
+  <meta charset="UTF-8">
+  <title>網址下載工具</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; }
+    input { width: 80%; padding: 8px; font-size: 16px; }
+    button { padding: 8px 16px; font-size: 16px; }
+  </style>
+</head>
+<body>
+
+<h2>網址下載器</h2>
+
+<input id="url" placeholder="請輸入要下載的URL">
+<button onclick="download()">下載</button>
+
+<script>
+async function download() {
+  const url = document.getElementById("url").value.trim();
+  if (!url) return alert("請輸入連結");
+
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) throw new Error("下載失敗");
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = blobUrl;
+
+    // 嘗試從 URL 取得檔名
+    a.download = url.split("/").pop() || "download";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    alert("無法下載（可能被 CORS 限制）");
+    console.error(err);
+  }
+}
+</script>
+
+
+</body></html>
