@@ -45,6 +45,7 @@ const downloadBtn = document.getElementById('downloadBtn'); // ✅ 新增
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+let originalFileName = "image";
 let originalImageData = null;
 
 // 上傳圖片
@@ -52,23 +53,17 @@ uploadInput.addEventListener('change', (event) => {
   const file = event.target.files[0];
   if (!file) return;
 
+  originalFileName = file.name;
   const reader = new FileReader();
   reader.onload = function(e) {
     const img = new Image();
     img.onload = function() {
 
       // ✅ 限制寬度不超過畫面
-      const maxWidth = window.innerWidth * 0.9;
-      let scale = 1;
-      if (img.width > maxWidth) {
-        scale = maxWidth / img.width;
-      }
-
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
       originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     };
     img.src = e.target.result;
@@ -126,8 +121,13 @@ downloadBtn.addEventListener('click', () => {
     return;
   }
 
+  // 分離檔名與副檔名
+  const parts = originalFileName.split('.');
+  const ext = parts.pop();
+  const name = parts.join('.');
+
   const link = document.createElement('a');
-  link.download = 'edited-image.png';
+  link.download = name + '_edited.' + ext; // ✅ 加後綴
   link.href = canvas.toDataURL('image/png');
   link.click();
 });
