@@ -1,98 +1,137 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>改變圖片顏色</title>
-  <style>
-    canvas {
-      border: 0px solid #00f;
-      margin-top: 10px;
-    }
-    .l80 {
-      position:relative;left:80px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>改變圖片顏色</title>
+<style>
+canvas {
+  border: 0px solid #00f;
+  margin-top: 10px;
+  max-width: 100%; /* ✅ 限制不超過畫面 */
+  height: auto;
+}
+.l80 {
+  position:relative;
+  left:80px;
+}
+</style>
 </head>
 <body>
-  <h2 class="l80">上傳圖片並修改 RGB</h2>
-  <input type="file" id="upload" class="l80" accept="image/*"/><br/>
-  <a class="l80">請輸入公式：</a><br/>
-  <a class="l80">R =</a><input type="text" value="r" id="rFactor" style="width:50%;position:absolute;left:120px;"/><br/>
-  <a class="l80">G =</a><input type="text" value="g" id="gFactor" style="width:50%;position:absolute;left:120px;"/><br/>
-  <a class="l80">B =</a><input type="text" value="b" id="bFactor" style="width:50%;position:absolute;left:120px;"/><br/>
-  <button class="l80" id="applyBtn">套用公式</button><br/>
-  <canvas id="canvas" class="l80"></canvas>
 
-  <script>
-    const uploadInput = document.getElementById('upload');
-    const applyBtn = document.getElementById('applyBtn');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+<h2 class="l80">上傳圖片並修改 RGB</h2>
+<input type="file" id="upload" class="l80" accept="image/*"/><br/>
 
-    let originalImageData = null; // 存放原始圖片像素資料
+<a class="l80">請輸入公式：</a><br/>
+<a class="l80">R =</a>
+<input type="text" value="r" id="rFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
-    uploadInput.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
+<a class="l80">G =</a>
+<input type="text" value="g" id="gFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
+<a class="l80">B =</a>
+<input type="text" value="b" id="bFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
-          // 儲存原始像素資料
-          originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
+<button class="l80" id="applyBtn">套用公式</button>
 
-    applyBtn.addEventListener('click', () => {
-      if (!originalImageData) {
-        alert("請先上傳圖片！");
-        return;
+<!-- ✅ 新增下載按鈕 -->
+<button class="l80" id="downloadBtn">下載圖片</button><br/>
+
+<canvas id="canvas" class="l80"></canvas>
+
+<script>
+const uploadInput = document.getElementById('upload');
+const applyBtn = document.getElementById('applyBtn');
+const downloadBtn = document.getElementById('downloadBtn'); // ✅ 新增
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let originalImageData = null;
+
+// 上傳圖片
+uploadInput.addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+
+      // ✅ 限制寬度不超過畫面
+      const maxWidth = window.innerWidth * 0.9;
+      let scale = 1;
+      if (img.width > maxWidth) {
+        scale = maxWidth / img.width;
       }
 
-      // 從原始圖片資料複製一份
-      const imageData = new ImageData(
-        new Uint8ClampedArray(originalImageData.data),
-        originalImageData.width,
-        originalImageData.height
-      );
-      const data = imageData.data;
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
 
-      const rInput = document.getElementById("rFactor");
-      const gInput = document.getElementById("gFactor");
-      const bInput = document.getElementById("bFactor");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      let rFunc, gFunc, bFunc;
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
 
-      try {
-        rFunc = new Function('r', 'g', 'b', 'return ' + rInput.value);
-        gFunc = new Function('r', 'g', 'b', 'return ' + gInput.value);
-        bFunc = new Function('r', 'g', 'b', 'return ' + bInput.value);
-      } catch (e) {
-        alert("公式錯誤，請檢查輸入！");
-        return;
-      }
+// 套用 RGB
+applyBtn.addEventListener('click', () => {
+  if (!originalImageData) {
+    alert("請先上傳圖片！");
+    return;
+  }
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+  const imageData = new ImageData(
+    new Uint8ClampedArray(originalImageData.data),
+    originalImageData.width,
+    originalImageData.height
+  );
 
-        data[i]     = Math.max(0, Math.min(255, rFunc(r, g, b)));
-        data[i + 1] = Math.max(0, Math.min(255, gFunc(r, g, b)));
-        data[i + 2] = Math.max(0, Math.min(255, bFunc(r, g, b)));
-      }
+  const data = imageData.data;
 
-      // 顯示處理後的結果
-      ctx.putImageData(imageData, 0, 0);
-    });
-  </script>
+  const rInput = document.getElementById("rFactor");
+  const gInput = document.getElementById("gFactor");
+  const bInput = document.getElementById("bFactor");
+
+  let rFunc, gFunc, bFunc;
+
+  try {
+    rFunc = new Function('r', 'g', 'b', 'return ' + rInput.value);
+    gFunc = new Function('r', 'g', 'b', 'return ' + gInput.value);
+    bFunc = new Function('r', 'g', 'b', 'return ' + bInput.value);
+  } catch (e) {
+    alert("公式錯誤，請檢查輸入！");
+    return;
+  }
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    data[i]     = Math.max(0, Math.min(255, rFunc(r, g, b)));
+    data[i + 1] = Math.max(0, Math.min(255, gFunc(r, g, b)));
+    data[i + 2] = Math.max(0, Math.min(255, bFunc(r, g, b)));
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+});
+
+// ✅ 下載功能
+downloadBtn.addEventListener('click', () => {
+  if (!canvas.width) {
+    alert("沒有圖片可以下載！");
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.download = 'edited-image.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+</script>
+
 </body>
 </html>
