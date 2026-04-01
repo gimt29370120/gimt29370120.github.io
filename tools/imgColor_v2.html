@@ -22,21 +22,27 @@ canvas {
 <input type="file" id="upload" class="l80" accept="image/*"/><br/>
 
 <a class="l80">請輸入公式：</a><br/>
-<a class="l80">R =</a>
+<a class="l80">紅色r =</a>
 <input type="text" value="r" id="rFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
-<a class="l80">G =</a>
+<a class="l80">綠色g =</a>
 <input type="text" value="g" id="gFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
-<a class="l80">B =</a>
+<a class="l80">藍色b =</a>
 <input type="text" value="b" id="bFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
-<a class="l80">統一公式 =</a>
-<input type="text" id="allFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+<a class="l80">共用k =</a>
+<input type="text" value="k" id="allFactor" style="width:40%;position:absolute;left:120px;"/>
+<button class="l80" id="applyAllBtn">輸入</button><br/>
 
-<button class="l80" id="applyAllBtn">套用到 RGB</button><br/>
+<a class="l80">顏色h =</a>
+<input type="text" value="h" id="hFactor" style="width:40%;position:absolute;left:120px;"/><br/>
 
-<button class="l80" id="applyBtn">套用公式</button>
+<a class="l80">亮度l =</a>
+<input type="text" value="l" id="lFactor" style="width:40%;position:absolute;left:120px;"/>
+<button class="l80" id="applyHLBtn">輸入hl至共用</button><br/>
+  
+<button class="l80" id="applyBtn">套用到圖片</button>
 
 <!-- ✅ 新增下載按鈕 -->
 <button class="l80" id="downloadBtn">下載圖片</button><br/>
@@ -94,6 +100,21 @@ applyAllBtn.addEventListener('click', () => {
     gInput.value = input.replace(/\bk\b/g, 'g');
     bInput.value = input.replace(/\bk\b/g, 'b');
   
+});
+
+const applyHLBtn = document.getElementById('applyHLBtn');
+
+applyHLBtn.addEventListener('click', () => {
+  const hInput = document.getElementById("hFactor").value.trim();
+  const lInput = document.getElementById("lFactor").value.trim();
+
+  if (!hInput||!lInput) {
+    alert("請輸入公式！");
+    return;
+  }
+
+  const allInput = document.getElementById("allFactor");
+    allInput.value = hInput.replace(/\bh\b/g, "(k/(r+g+b)*3)") + "*" + lInput.replace(/\bl\b/g, "((r+g+b)/3)");
 });
 
 // 套用 RGB
