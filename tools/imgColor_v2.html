@@ -114,7 +114,7 @@ applyHLBtn.addEventListener('click', () => {
   }
 
   const allInput = document.getElementById("allFactor");
-    allInput.value = hInput.replace(/\bh\b/g, "(k/(r+g+b)*3)") + "*" + lInput.replace(/\bl\b/g, "((r+g+b)/3)");
+    allInput.value = "("+hInput.replace(/\bh\b/g, "(k/(r+g+b)*3)") + ")*(" + lInput.replace(/\bl\b/g, "((r+g+b)/3)")+")";
 });
 
 // 套用 RGB
