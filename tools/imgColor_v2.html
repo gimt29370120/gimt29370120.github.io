@@ -31,6 +31,11 @@ canvas {
 <a class="l80">B =</a>
 <input type="text" value="b" id="bFactor" style="width:50%;position:absolute;left:120px;"/><br/>
 
+<a class="l80">統一公式 =</a>
+<input type="text" id="allFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+
+<button class="l80" id="applyAllBtn">套用到 RGB</button><br/>
+
 <button class="l80" id="applyBtn">套用公式</button>
 
 <!-- ✅ 新增下載按鈕 -->
@@ -69,6 +74,26 @@ uploadInput.addEventListener('change', (event) => {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+});
+
+const applyAllBtn = document.getElementById('applyAllBtn');
+
+applyAllBtn.addEventListener('click', () => {
+  const input = document.getElementById("allFactor").value.trim();
+
+  if (!input) {
+    alert("請輸入公式！");
+    return;
+  }
+
+  const rInput = document.getElementById("rFactor");
+  const gInput = document.getElementById("gFactor");
+  const bInput = document.getElementById("bFactor");
+
+    rInput.value = input.replace(/\bk\b/g, 'r');
+    gInput.value = input.replace(/\bk\b/g, 'g');
+    bInput.value = input.replace(/\bk\b/g, 'b');
+  
 });
 
 // 套用 RGB
