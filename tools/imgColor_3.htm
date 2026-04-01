@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>改變圖片顏色</title>
+<style>
+canvas {
+  border: 0px solid #00f;
+  margin-top: 10px;
+  max-width: 100%; /* ✅ 限制不超過畫面 */
+  height: auto;
+}
+.l80 {
+  position:relative;
+  left:80px;
+}
+button {
+  background-color: #eee;
+  border: 1px solid #888;
+  cursor: pointer;
+}
+
+/* 按下瞬間 */
+button:active {
+  background-color: #3399ff;
+  color: white;
+}
+</style>
+</head>
+<body>
+
+<h2 class="l80">上傳圖片並修改 RGB</h2>
+<input type="file" id="upload" class="l80" accept="image/*"/><br/>
+
+<a class="l80">請輸入公式：</a><br/>
+<a class="l80">紅色r =</a>
+<input type="text" value="r" id="rFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+
+<a class="l80">綠色g =</a>
+<input type="text" value="g" id="gFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+
+<a class="l80">藍色b =</a>
+<input type="text" value="b" id="bFactor" style="width:50%;position:absolute;left:120px;"/><br/>
+
+<a class="l80">共用k =</a>
+<input type="text" value="k" id="allFactor" style="width:40%;position:absolute;left:120px;"/><br/>
+<button class="l80" id="applyAllBtn">輸入</button><br/>
+
+<a class="l80">顏色h =</a>
+<input type="text" value="h" id="hFactor" style="width:40%;position:absolute;left:120px;"/><br/>
+
+<a class="l80">亮度l =</a>
+<input type="text" value="l" id="lFactor" style="width:40%;position:absolute;left:120px;"/><br/>
+<button class="l80" id="applyHLBtn">輸入hl至共用</button><br/>
+  
+<button class="l80" id="applyBtn">套用到圖片</button>
+
+<!-- ✅ 新增下載按鈕 -->
+<button class="l80" id="downloadBtn">下載圖片</button><br/>
+
+<canvas id="canvas" class="l80"></canvas>
+
+<script>
+const uploadInput = document.getElementById('upload');
+const applyBtn = document.getElementById('applyBtn');
+const downloadBtn = document.getElementById('downloadBtn'); // ✅ 新增
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let originalFileName = "image";
+let originalImageData = null;
+
+// 上傳圖片
+uploadInput.addEventListener('change', (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  originalFileName = file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+
+      // ✅ 限制寬度不超過畫面
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+const applyAllBtn = document.getElementById('applyAllBtn');
+
+applyAllBtn.addEventListener('click', () => {
+  const input = document.getElementById("allFactor").value.trim();
+
+  if (!input) {
+    alert("請輸入公式！");
+    return;
+  }
+
+  const rInput = document.getElementById("rFactor");
+  const gInput = document.getElementById("gFactor");
+  const bInput = document.getElementById("bFactor");
+
+    rInput.value = input.replace(/\bk\b/g, 'r');
+    gInput.value = input.replace(/\bk\b/g, 'g');
+    bInput.value = input.replace(/\bk\b/g, 'b');
+  
+});
+
+const applyHLBtn = document.getElementById('applyHLBtn');
+
+applyHLBtn.addEventListener('click', () => {
+  const hInput = document.getElementById("hFactor").value.trim();
+  const lInput = document.getElementById("lFactor").value.trim();
+
+  if (!hInput||!lInput) {
+    alert("請輸入公式！");
+    return;
+  }
+
+  const allInput = document.getElementById("allFactor");
+    allInput.value = "("+hInput.replace(/\bh\b/g, "(k/(r+g+b)*3)") + ")*(" + lInput.replace(/\bl\b/g, "((r+g+b)/3)")+")";
+});
+
+// 套用 RGB
+applyBtn.addEventListener('click', () => {
+  if (!originalImageData) {
+    alert("請先上傳圖片！");
+    return;
+  }
+
+  const imageData = new ImageData(
+    new Uint8ClampedArray(originalImageData.data),
+    originalImageData.width,
+    originalImageData.height
+  );
+
+  const data = imageData.data;
+
+  const rInput = document.getElementById("rFactor");
+  const gInput = document.getElementById("gFactor");
+  const bInput = document.getElementById("bFactor");
+
+  let rFunc, gFunc, bFunc;
+
+  try {
+    rFunc = new Function('r', 'g', 'b', 'return ' + rInput.value);
+    gFunc = new Function('r', 'g', 'b', 'return ' + gInput.value);
+    bFunc = new Function('r', 'g', 'b', 'return ' + bInput.value);
+  } catch (e) {
+    alert("公式錯誤，請檢查輸入！");
+    return;
+  }
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    data[i]     = Math.max(0, Math.min(255, rFunc(r, g, b)));
+    data[i + 1] = Math.max(0, Math.min(255, gFunc(r, g, b)));
+    data[i + 2] = Math.max(0, Math.min(255, bFunc(r, g, b)));
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+});
+
+// ✅ 下載功能
+downloadBtn.addEventListener('click', () => {
+  if (!canvas.width) {
+    alert("沒有圖片可以下載！");
+    return;
+  }
+
+  // 分離檔名與副檔名
+  const parts = originalFileName.split('.');
+  const ext = parts.pop();
+  const name = parts.join('.');
+
+  const link = document.createElement('a');
+  link.download = name + '_edited.' + ext; // ✅ 加後綴
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+</script>
+
+</body>
+</html>
