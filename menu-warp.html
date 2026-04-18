@@ -67,6 +67,30 @@ ul.menu-wrap ul { /*隱藏次選單*/
 ul.menu-wrap li:hover > ul { /* 滑鼠滑入展開次選單*/
  display: block;
 }
+ul.menu-wrap li {
+  position: relative; /* 這是讓子選單定位的基準 */
+}
+
+/* 第二層以上的選單 */
+ul.menu-wrap ul {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;   /*往右偏移一整個父層寬度 */
+  min-width: 160px; /* 避免太窄 */
+  z-index: 999;
+}
+
+/* 第一層的子選單（往下展開） */
+ul.menu-wrap > li > ul {
+  top: 100%;  /* 往下 */
+  left: 0;    /* 不要往右 */
+}
+
+/* hover 顯示 */
+ul.menu-wrap li:hover > ul {
+  display: block;
+}
 </style>
 <ul class="menu-wrap">
   <li>
