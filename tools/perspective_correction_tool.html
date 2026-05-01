@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>透視校正</title>
+<style>
+body { margin:0; font-family:sans-serif; }
+canvas { border:1px solid #333; display:block; }
+</style>
+</head>
+<body>
+<input type="file" id="upload" accept="image/*">
+<canvas id="viewCanvas"></canvas>
+<canvas id="srcCanvas" style="display:none"></canvas>
+<div class="row">
+  輸出比例：
+  <input id="ratio" value="1:1" style="width:60px">
+  <span id="sizeHint" style="font-size:12px;color:#888;margin-left:8px;"></span>
+</div>
+<button id="process">開始處理</button>
+<button id="download">下載</button>
+<canvas id="outputCanvas" style="max-width:100%;min-width:700;"></canvas>
+<script>
+const upload = document.getElementById('upload');
+const viewCanvas = document.getElementById('viewCanvas');
+const srcCanvas  = document.getElementById('srcCanvas');
+const outCanvas  = document.getElementById('outputCanvas');
+const vctx = viewCanvas.getContext('2d');
+const sctx = srcCanvas.getContext('2d');
+const octx = outCanvas.getContext('2d');
+
+const UI_SIZE  = 30;
+const HIT_SIZE = 40;
+
+let originalFileName = "output";
+let img      = new Image();
+let points   = [];
+let dragging = -1;
+let viewScale = 1;
+let offsetX   = 0;
+let offsetY   = 0;
+
+/* ===== 載入圖片 ===== */
+upload.onchange = e => {
+  const file = e.target.files[0];
+  originalFileName = file.name.replace(/\.[^/.]+$/, "");
+  img.src = URL.createObjectURL(file);
+};
+
+img.onload = () => {
+  const MAX = Math.min(Math.max(window.innerWidth * 0.6, 700), window.innerWidth);
+  const iw = img.width, ih = img.height;
+  if (iw >= ih) {
+    viewCanvas.width  = MAX;
+    viewCanvas.height = Math.round(MAX * ih / iw);
+  } else {
+    viewCanvas.height = MAX;
+    viewCanvas.width  = Math.round(MAX * iw / ih);
+  }
+  srcCanvas.width  = iw;
+  srcCanvas.height = ih;
+  sctx.drawImage(img, 0, 0);
+  points = [
+    { x: 0,  y: 0  },
+    { x: iw, y: 0  },
+    { x: iw, y: ih },
+    { x: 0,  y: ih }
+  ];
+  updateSizeHint();
+  draw();
+};
+
+/* ===== 估算透視校正後的合理輸出尺寸 ===== */
+function estimateOutputSize() {
+  const [p0, p1, p2, p3] = points;
+  const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+  const wTop    = dist(p0, p1);
+  const wBottom = dist(p3, p2);
+  const hLeft   = dist(p0, p3);
+  const hRight  = dist(p1, p2);
+  const w = Math.round((wTop + wBottom) / 2);
+  const h = Math.round((hLeft + hRight) / 2);
+  return { w: Math.max(w, 1), h: Math.max(h, 1) };
+}
+
+function updateSizeHint() {
+  const { w, h } = estimateOutputSize();
+  document.getElementById('sizeHint').textContent = `（估算 ${w} × ${h} px）`;
+}
+
+/* ===== 畫面繪製 ===== */
+function draw() {
+  vctx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+  viewScale = Math.min(
+    viewCanvas.width  / img.width,
+    viewCanvas.height / img.height
+  );
+  offsetX = (viewCanvas.width  - img.width  * viewScale) / 2;
+  offsetY = (viewCanvas.height - img.height * viewScale) / 2;
+  vctx.drawImage(img, offsetX, offsetY, img.width * viewScale, img.height * viewScale);
+  drawUI();
+}
+
+function drawUI() {
+  vctx.strokeStyle = '#6bbcff';
+  vctx.lineWidth   = 2;
+  vctx.setLineDash([6, 4]);
+  vctx.beginPath();
+  points.forEach((p, i) => {
+    const x = offsetX + p.x * viewScale;
+    const y = offsetY + p.y * viewScale;
+    if (i === 0) vctx.moveTo(x, y); else vctx.lineTo(x, y);
+  });
+  vctx.closePath();
+  vctx.stroke();
+  vctx.setLineDash([]);
+  points.forEach(p => {
+    const x = offsetX + p.x * viewScale;
+    const y = offsetY + p.y * viewScale;
+    vctx.fillStyle = 'rgba(255,255,255,0.7)';
+    vctx.fillRect(x - UI_SIZE/2, y - UI_SIZE/2, UI_SIZE, UI_SIZE);
+    vctx.strokeRect(x - UI_SIZE/2, y - UI_SIZE/2, UI_SIZE, UI_SIZE);
+  });
+}
+
+/* ===== 拖曳（滑鼠＋觸控）===== */
+function getViewPos(e) {
+  const r = viewCanvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: t.clientX - r.left, y: t.clientY - r.top };
+}
+
+viewCanvas.addEventListener('mousedown',  startDrag);
+viewCanvas.addEventListener('touchstart', startDrag, { passive: false });
+viewCanvas.addEventListener('mousemove',  moveDrag);
+viewCanvas.addEventListener('touchmove',  moveDrag, { passive: false });
+viewCanvas.addEventListener('mouseup',    () => dragging = -1);
+viewCanvas.addEventListener('touchend',   () => dragging = -1);
+
+function startDrag(e) {
+  const { x, y } = getViewPos(e);
+  dragging = -1;
+  points.forEach((p, i) => {
+    const px = offsetX + p.x * viewScale;
+    const py = offsetY + p.y * viewScale;
+    if (x >= px - HIT_SIZE/2 && x <= px + HIT_SIZE/2 &&
+        y >= py - HIT_SIZE/2 && y <= py + HIT_SIZE/2)
+      dragging = i;
+  });
+}
+
+function moveDrag(e) {
+  if (dragging < 0) return;
+  e.preventDefault();
+  const { x, y } = getViewPos(e);
+  points[dragging].x = (x - offsetX) / viewScale;
+  points[dragging].y = (y - offsetY) / viewScale;
+  updateSizeHint();
+  draw();
+}
+
+/* ===== Homography ===== */
+function computeH(src, dst) {
+  const A = [];
+  for (let i = 0; i < 4; i++) {
+    const { x, y } = src[i], { x: u, y: v } = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u*x, -u*y, u]);
+    A.push([0, 0, 0, x, y, 1, -v*x, -v*y, v]);
+  }
+  return gaussianSolve(A).slice(0, 9);
+}
+
+function gaussianSolve(m) {
+  for (let i = 0; i < 8; i++) {
+    let max = i;
+    for (let j = i+1; j < 8; j++)
+      if (Math.abs(m[j][i]) > Math.abs(m[max][i])) max = j;
+    [m[i], m[max]] = [m[max], m[i]];
+    for (let j = i+1; j < 8; j++) {
+      const f = m[j][i] / m[i][i];
+      for (let k = i; k < 9; k++) m[j][k] -= f * m[i][k];
+    }
+  }
+  const x = Array(9).fill(1);
+  for (let i = 7; i >= 0; i--) {
+    let s = m[i][8];
+    for (let j = i+1; j < 8; j++) s -= m[i][j] * x[j];
+    x[i] = s / m[i][i];
+  }
+  return x;
+}
+
+/* ===== 雙線性插值 ===== */
+function bilinearSample(src, iw, ih, sx, sy) {
+  const x0 = Math.floor(sx), y0 = Math.floor(sy);
+  const x1 = Math.min(x0 + 1, iw - 1), y1 = Math.min(y0 + 1, ih - 1);
+  if (x0 < 0 || y0 < 0 || x0 >= iw || y0 >= ih) return null;
+  const fx = sx - x0, fy = sy - y0;
+  const w00 = (1-fx)*(1-fy), w10 = fx*(1-fy);
+  const w01 = (1-fx)*fy,    w11 = fx*fy;
+  const i00 = (y0*iw + x0)*4, i10 = (y0*iw + x1)*4;
+  const i01 = (y1*iw + x0)*4, i11 = (y1*iw + x1)*4;
+  const out = new Array(4);
+  for (let k = 0; k < 4; k++) {
+    out[k] = Math.round(
+      src[i00+k]*w00 + src[i10+k]*w10 +
+      src[i01+k]*w01 + src[i11+k]*w11
+    );
+  }
+  return out;
+}
+
+/* ===== 透視校正 ===== */
+document.getElementById('process').onclick = () => {
+  const ratioStr = document.getElementById('ratio').value.trim();
+  let w, h;
+
+  /* 自動模式：不填或填 auto */
+  if (!ratioStr || ratioStr === 'auto') {
+    const est = estimateOutputSize();
+    w = est.w; h = est.h;
+  } else {
+    const parts = ratioStr.split(':').map(Number);
+    if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
+      /* 比例模式：保留自動推算的長邊，另一邊依比例 */
+      const est = estimateOutputSize();
+      const rw  = parts[0], rh = parts[1];
+      const byW = Math.round(est.w * rh / rw);
+      const byH = Math.round(est.h * rw / rh);
+      /* 選較接近原始估算面積的版本 */
+      if (Math.abs(byW - est.h) < Math.abs(byH - est.w)) {
+        w = est.w; h = byW;
+      } else {
+        h = est.h; w = byH;
+      }
+    } else {
+      alert('比例格式請輸入如 4:3 或留空自動'); return;
+    }
+  }
+
+  outCanvas.width  = w;
+  outCanvas.height = h;
+
+  const H = computeH(
+    [{ x:0,y:0 }, { x:w,y:0 }, { x:w,y:h }, { x:0,y:h }],
+    points
+  );
+
+  const src = sctx.getImageData(0, 0, img.width, img.height);
+  const dst = octx.createImageData(w, h);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const d  = H[6]*x + H[7]*y + 1;
+      const sx = (H[0]*x + H[1]*y + H[2]) / d;
+      const sy = (H[3]*x + H[4]*y + H[5]) / d;
+      const rgba = bilinearSample(src.data, img.width, img.height, sx, sy);
+      if (!rgba) continue;
+      const di = (y*w + x)*4;
+      for (let k = 0; k < 4; k++) dst.data[di+k] = rgba[k];
+    }
+  }
+  octx.putImageData(dst, 0, 0);
+};
+
+/* ===== 下載 ===== */
+document.getElementById('download').onclick = () => {
+  const a = document.createElement('a');
+  a.download = `${originalFileName}_transformed.png`;
+  a.href = outCanvas.toDataURL();
+  a.click();
+};
+</script>
+</body>
+</html>
