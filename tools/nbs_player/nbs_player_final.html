@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<!--尚未把自訂樂器改成用設定內容而非樂器名稱來尋找ogg檔案-->
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBS 播放器 - WAV 渲染版</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #222;
+      border: 2px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #90ee90;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+
+    /* 檔案上傳區 */
+    .upload-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #1a1a1a;
+      border: 2px dashed #3a3a3a;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+    }
+
+    .upload-section:hover {
+      border-color: #90ee90;
+      background: #252525;
+    }
+
+    .upload-section label {
+      display: block;
+      cursor: pointer;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .upload-section input {
+      display: none;
+    }
+
+    .upload-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .upload-text {
+      font-size: 14px;
+      color: #aaa;
+    }
+
+    /* 資訊區 */
+    .info-section {
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #1a1a1a;
+      border-radius: 6px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-label {
+      color: #888;
+    }
+
+    .info-value {
+      color: #e0e0e0;
+      font-weight: 600;
+    }
+
+    /* 進度條 */
+    .progress-section {
+      margin-bottom: 25px;
+    }
+
+    .time-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: #1a1a1a;
+      border-radius: 3px;
+      cursor: pointer;
+      overflow: hidden;
+      border: 1px solid #3a3a3a;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #90ee90, #76ee76);
+      width: 0%;
+      transition: width 0.05s linear;
+    }
+
+    /* 控制按鈕 */
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #3a3a3a;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    button:hover:not(:disabled) {
+      background: #252525;
+      border-color: #90ee90;
+      color: #90ee90;
+      box-shadow: 0 0 10px rgba(144, 238, 144, 0.2);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* 音量控制 */
+    .volume-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 15px;
+      background: #1a1a1a;
+      border-radius: 6px;
+    }
+
+    .volume-label {
+      font-size: 13px;
+      color: #888;
+      white-space: nowrap;
+    }
+
+    .volume-slider {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: #3a3a3a;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #90ee90;
+      cursor: pointer;
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #90ee90;
+      cursor: pointer;
+      border: none;
+    }
+
+    .volume-value {
+      font-size: 12px;
+      color: #888;
+      width: 35px;
+      text-align: right;
+    }
+
+    /* 狀態訊息 */
+    .status {
+      padding: 12px;
+      background: rgba(144, 238, 144, 0.1);
+      border-left: 3px solid #90ee90;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #90ee90;
+      text-align: center;
+      display: none;
+      word-break: break-all;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.error {
+      background: rgba(255, 100, 100, 0.1);
+      border-left-color: #ff6464;
+      color: #ff6464;
+    }
+
+    .status.warning {
+      background: rgba(255, 200, 100, 0.1);
+      border-left-color: #ffc864;
+      color: #ffc864;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎵 NBS 播放器</h1>
+    <p class="subtitle">上傳並渲染為 WAV 檔案</p>
+
+    <!-- 檔案上傳 -->
+    <div class="upload-section">
+      <label>
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">點擊選擇或拖拉 NBS 檔案</div>
+        <input type="file" id="nbsFile" accept=".nbs">
+      </label>
+    </div>
+
+    <!-- 資訊區 -->
+    <div id="infoSection" class="info-section" style="display: none;">
+      <div class="info-row">
+        <span class="info-label">歌曲名稱</span>
+        <span class="info-value" id="songName">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">作者</span>
+        <span class="info-value" id="songAuthor">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">速度</span>
+        <span class="info-value" id="songTempo">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">總音符數</span>
+        <span class="info-value" id="noteCount">-</span>
+      </div>
+    </div>
+
+    <!-- 進度條 -->
+    <div id="progressSection" class="progress-section" style="display: none;">
+      <div class="time-display">
+        <span id="currentTime">0:00</span>
+        <span id="duration">0:00</span>
+      </div>
+      <div class="progress-bar-container" id="progressBarContainer">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- 控制按鈕（移除渲染按鈕） -->
+    <div id="controlsSection" class="controls" style="display: none;">
+      <button id="playBtn" onclick="player.play()" style="display: none;">▶ 播放</button>
+      <button id="pauseBtn" onclick="player.pause()" style="display: none;">⏸ 暫停</button>
+      <button id="downloadBtn" onclick="player.download()" style="display: none;">⬇ 下載</button>
+    </div>
+
+    <!-- 音量控制 -->
+    <div id="volumeSection" class="volume-section" style="display: none;">
+      <span class="volume-label">音量</span>
+      <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="100">
+      <span class="volume-value" id="volumeValue">100%</span>
+    </div>
+
+    <!-- 狀態訊息 -->
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    // ============ NBS 解析器 ============
+    class NBSParser {
+      constructor(buffer) {
+        this.buffer = buffer;
+        this.offset = 0;
+      }
+
+      readByte() { return this.buffer.getInt8(this.offset++); }
+      readUByte() { return this.buffer.getUint8(this.offset++); }
+      readShort() { const v = this.buffer.getInt16(this.offset, true); this.offset += 2; return v; }
+      readInt() { const v = this.buffer.getInt32(this.offset, true); this.offset += 4; return v; }
+      readString() {
+        const len = this.readInt();
+        const bytes = [];
+        for (let i = 0; i < len; i++) {
+            bytes.push(this.readUByte());
+        }
+        const str = String.fromCharCode(...bytes);
+        return str;
+    }
+
+      parse() {
+        const firstShort = this.readShort();
+        let nbsVersion, vanillaInstrumentCount;
+
+        if (firstShort === 0) {
+          nbsVersion = this.readUByte();
+          vanillaInstrumentCount = this.readUByte();
+        } else {
+          nbsVersion = 0;
+          vanillaInstrumentCount = 10;
+        }
+
+        const header = {
+          nbsVersion,
+          vanillaInstrumentCount,
+          songLength: nbsVersion >= 3 ? this.readShort() : firstShort,
+          layerCount: this.readShort(),
+          songName: this.readString(),
+          songAuthor: this.readString(),
+          songOriginalAuthor: this.readString(),
+          songDescription: this.readString(),
+          songTempo: this.readShort() / 100,
+          autoSaving: this.readUByte() === 1,
+          autoSavingDuration: this.readUByte(),
+          timeSignature: this.readUByte(),
+          minutesSpent: this.readInt(),
+          leftClicks: this.readInt(),
+          rightClicks: this.readInt(),
+          noteBlocksAdded: this.readInt(),
+          noteBlocksRemoved: this.readInt(),
+          importedFileName: this.readString(),
+          loopOn: this.readUByte() === 1,
+          maxLoopCount: this.readUByte(),
+          loopStartTick: this.readShort(),
+        };
+
+        const notes = [];
+        let tick = -1;
+
+        while (true) {
+          const jumpTick = this.readShort();
+          if (jumpTick === 0) break;
+          tick += jumpTick;
+
+          let layer = -1;
+          while (true) {
+            const jumpLayer = this.readShort();
+            if (jumpLayer === 0) break;
+            layer += jumpLayer;
+
+            const instrument = this.readUByte();
+            const key = this.readUByte();
+            const velocity = nbsVersion >= 4 ? this.readUByte() : 100;
+            const panning = nbsVersion >= 4 ? this.readUByte() : 100;
+            const pitch = nbsVersion >= 4 ? this.readShort() : 0;
+
+            notes.push({ tick, layer, instrument, key, velocity, panning, pitch });
+          }
+        }
+
+        // 讀取軌道資訊
+        const layers = [];
+        for (let i = 0; i < header.layerCount; i++) {
+            const name = this.readString();
+            const locked = nbsVersion >= 4 ? this.readUByte() === 1 : false;
+            const volume = this.readUByte();
+            const stereo = nbsVersion >= 2 ? this.readUByte() : 100;
+            layers.push({ name, locked, volume, stereo });
+        }
+
+        // 自訂樂器
+        const customInstruments = [];
+        try {
+            const customCount = this.readUByte();
+            for (let i = 0; i < customCount; i++) {
+                const name = this.readString();
+                const file = this.readString();
+                const soundKey = this.readByte();
+                const pressKey = this.readByte();
+                customInstruments.push({ name, file, soundKey, pressKey });
+            }
+        } catch (_) {}
+console.log(customInstruments);
+        return { header, notes, layers, customInstruments };
+      }
+    }
+
+    // ============ WAV 生成器 ============
+    class WAVGenerator {
+      static createWAV(audioBuffer, sampleRate = 44100) {
+        const numberOfChannels = audioBuffer.numberOfChannels;
+        const length = audioBuffer.length;
+        const data = new Float32Array(length);
+        const offlineContext = new OfflineAudioContext(1, length, sampleRate);
+
+        for (let i = 0; i < numberOfChannels; i++) {
+          const channelData = audioBuffer.getChannelData(i);
+          for (let j = 0; j < length; j++) {
+            data[j] = (data[j] || 0) + channelData[j];
+          }
+        }
+
+        return this.encodeWAV(data, sampleRate);
+      }
+
+      static encodeWAV(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+
+        const writeString = (offset, string) => {
+          for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+          }
+        };
+
+        const floatTo16BitPCM = (output, offset, input) => {
+          for (let i = 0; i < input.length; i++, offset += 2) {
+            const s = Math.max(-1, Math.min(1, input[i]));
+            output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+          }
+        };
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+        floatTo16BitPCM(view, 44, samples);
+
+        return buffer;
+      }
+    }
+
+    // ============ NBS 播放器 ============
+    class NBSPlayer {
+      constructor() {
+        this.audioContext = null;
+        this.nbs = null;
+        this.audioBuffers = new Map();
+        this.isPlaying = false;
+        this.audioElement = null;
+        this.wavBlob = null;
+        this.volume = 0.8;
+        this.masterGainNode = null;
+
+        this.instrumentNames = [
+          'harp', 'dbass', 'bdrum', 'sdrum', 'click',
+          'guitar', 'flute', 'bell', 'icechime', 'xylobone',
+          'iron_xylophone', 'cow_bell', 'didgeridoo', 'bit', 'banjo', 'pling',
+        ];
+      }
+
+      async loadNBS(arrayBuffer) {
+        const parser = new NBSParser(new DataView(arrayBuffer));
+        this.nbs = parser.parse();
+        return this.nbs;
+      }
+
+      async loadAudioFiles(soundsFolder) {
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        const uniqueInstruments = new Set();
+        this.nbs.notes.forEach(note => uniqueInstruments.add(note.instrument));
+
+        const promises = Array.from(uniqueInstruments).map(async (instrument) => {
+          let fileName;
+
+          if (instrument < this.instrumentNames.length) {
+            fileName = `${this.instrumentNames[instrument].toLowerCase()}.ogg`;
+          } else {
+            const customIndex = instrument - this.instrumentNames.length;
+            const custom = this.nbs.customInstruments?.[customIndex];
+            if (!custom) {
+              console.warn(`找不到自訂樂器 index ${instrument}`);
+              return;
+            }
+            fileName = custom.file; // 直接用檔案內記載的路徑
+          }
+
+          const filePath = `${soundsFolder}/${fileName}`;
+
+          try {
+            const response = await fetch(filePath);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            this.audioBuffers.set(instrument, audioBuffer);
+          } catch (err) {
+            console.warn(`無法加載 ${fileName}`);
+          }
+        });
+
+        await Promise.all(promises);
+      }
+
+      calculatePlaybackRate(key) {
+        const baseKey = 45;
+        const semitones = key - baseKey;
+        return Math.pow(2, semitones / 12);
+      }
+
+      getTotalDuration() {
+        if (!this.nbs) return 0;
+        const maxTick = Math.max(...this.nbs.notes.map(n => n.tick), 0);
+        return (maxTick * 1000) / this.nbs.header.songTempo;
+      }
+
+      async render() {
+        if (!this.nbs || !this.audioContext) {
+          showStatus('請先上傳檔案', true);
+          return;
+        }
+
+        showStatus('⏳ 正在渲染 WAV...', false);
+
+        try {
+          const sampleRate = this.audioContext.sampleRate || 44100;
+          const maxTick = Math.max(...this.nbs.notes.map(n => n.tick), 0);
+          const totalSamples = Math.ceil((maxTick / this.nbs.header.songTempo) * sampleRate);
+          const audioData = new Float32Array(totalSamples);
+
+          let processedCount = 0;
+          const totalNotes = this.nbs.notes.length;
+
+          for (const note of this.nbs.notes) {
+            const audioBuffer = this.audioBuffers.get(note.instrument);
+            if (!audioBuffer) continue;
+
+            const startTime = (note.tick / this.nbs.header.songTempo);
+            const startSample = Math.floor(startTime * sampleRate);
+            const playbackRate = this.calculatePlaybackRate(note.key);
+            const noteVelocity = (note.velocity || 100) / 100;
+            const layerVolume = (this.nbs.layers && this.nbs.layers[note.layer] 
+              ? this.nbs.layers[note.layer].volume / 100 
+              : 1.0);
+            const gain = this.volume * noteVelocity * layerVolume;
+
+            const sourceData = audioBuffer.getChannelData(0);
+            const stretchedLength = Math.floor(sourceData.length / playbackRate);
+
+            for (let i = 0; i < stretchedLength && startSample + i < totalSamples; i++) {
+              const sourceIndex = Math.floor(i * playbackRate);
+              if (sourceIndex < sourceData.length) {
+                audioData[startSample + i] += sourceData[sourceIndex] * gain;
+              }
+            }
+
+            processedCount++;
+            if (processedCount % 10 === 0) {
+              showStatus(`⏳ 正在渲染... ${Math.round((processedCount / totalNotes) * 100)}%`, false);
+              await new Promise(r => setTimeout(r, 0));
+            }
+          }
+
+          // 規範化音檔
+          let maxAmp = 0;
+          for (let i = 0; i < audioData.length; i++) {
+            maxAmp = Math.max(maxAmp, Math.abs(audioData[i]));
+          }
+          if (maxAmp > 1) {
+            const normalizeGain = 0.95 / maxAmp;
+            for (let i = 0; i < audioData.length; i++) {
+              audioData[i] *= normalizeGain;
+            }
+          }
+
+          // 創建虛擬 AudioBuffer
+          const offlineContext = new OfflineAudioContext(1, audioData.length, sampleRate);
+          const fakeBuffer = offlineContext.createBuffer(1, audioData.length, sampleRate);
+          fakeBuffer.getChannelData(0).set(audioData);
+
+          const wavBuffer = WAVGenerator.createWAV(fakeBuffer, sampleRate);
+          this.wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+
+          // 建立音檔播放元素
+          const wavUrl = URL.createObjectURL(this.wavBlob);
+          if (!this.audioElement) {
+            this.audioElement = new Audio();
+            this.audioElement.addEventListener('timeupdate', () => this.updateProgressBar());
+            this.audioElement.addEventListener('ended', () => {
+              document.getElementById('playBtn').style.display = 'block';
+              document.getElementById('pauseBtn').style.display = 'none';
+              this.isPlaying = false;
+            });
+          }
+          this.audioElement.src = wavUrl;
+
+          document.getElementById('playBtn').style.display = 'block';
+          document.getElementById('downloadBtn').style.display = 'block';
+
+          showStatus('✓ 渲染完成，可以播放或下載', false);
+        } catch (err) {
+          showStatus(`✗ 渲染失敗: ${err.message}`, true);
+        }
+      }
+
+      play() {
+        if (!this.audioElement) return;
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume();
+        }
+        this.audioElement.play();
+        this.isPlaying = true;
+        document.getElementById('playBtn').style.display = 'none';
+        document.getElementById('pauseBtn').style.display = 'block';
+      }
+
+      pause() {
+        if (!this.audioElement) return;
+        this.audioElement.pause();
+        this.isPlaying = false;
+        document.getElementById('playBtn').style.display = 'block';
+        document.getElementById('pauseBtn').style.display = 'none';
+      }
+
+      download() {
+        if (!this.wavBlob) {
+          showStatus('請先渲染 WAV', true);
+          return;
+        }
+        const url = URL.createObjectURL(this.wavBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (this.nbs.header.songName || 'song') + '.wav';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      setVolume(value) {
+        this.volume = value / 100;
+        if (this.audioElement) {
+          this.audioElement.volume = this.volume;
+        }
+      }
+
+      updateProgressBar() {
+        if (!this.audioElement) return;
+        const progress = (this.audioElement.currentTime / this.audioElement.duration) * 100;
+        document.getElementById('progressBar').style.width = progress + '%';
+        document.getElementById('currentTime').textContent = this.formatTime(this.audioElement.currentTime * 1000);
+      }
+
+      formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
+
+    // ============ 應用邏輯 ============
+    const player = new NBSPlayer();
+
+    document.getElementById('nbsFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      showStatus('加載中...', false);
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const nbs = await player.loadNBS(arrayBuffer);
+        await player.loadAudioFiles('./sounds');
+
+        document.getElementById('songName').textContent = nbs.header.songName || '(未命名)';
+        document.getElementById('songAuthor').textContent = nbs.header.songAuthor || '(未知)';
+        document.getElementById('songTempo').textContent = nbs.header.songTempo.toFixed(2) + ' ticks/sec';
+        document.getElementById('noteCount').textContent = nbs.notes.length;
+        document.getElementById('duration').textContent = player.formatTime(player.getTotalDuration());
+        document.getElementById('infoSection').style.display = 'block';
+        document.getElementById('progressSection').style.display = 'block';
+        document.getElementById('controlsSection').style.display = 'flex';
+        document.getElementById('volumeSection').style.display = 'flex';
+
+        // 自動開始渲染
+        await player.render();
+      } catch (err) {
+        showStatus(`錯誤: ${err.message}`, true);
+        console.error(err);
+      }
+    });
+
+    document.getElementById('volumeSlider').addEventListener('input', (e) => {
+      const value = e.target.value;
+      player.setVolume(value);
+      document.getElementById('volumeValue').textContent = value + '%';
+    });
+
+    document.getElementById('progressBarContainer').addEventListener('click', (e) => {
+      if (!player.audioElement) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      player.audioElement.currentTime = percent * player.audioElement.duration;
+    });
+
+    function showStatus(message, isError) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status show' + (isError ? ' error' : '');
+    }
+
+    // 拖拉上傳
+    const uploadSection = document.querySelector('.upload-section');
+    uploadSection.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadSection.style.borderColor = '#90ee90';
+    });
+
+    uploadSection.addEventListener('dragleave', () => {
+      uploadSection.style.borderColor = '#3a3a3a';
+    });
+
+    uploadSection.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadSection.style.borderColor = '#3a3a3a';
+      const files = e.dataTransfer.files;
+      if (files[0]) {
+        document.getElementById('nbsFile').files = files;
+        document.getElementById('nbsFile').dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  </script>
+</body>
+</html>

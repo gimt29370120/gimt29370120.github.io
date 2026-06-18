@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>SSTV Decoder</title>
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --panel: #ffffff;
+    --border: #d0cfc8;
+    --accent: #2a6496;
+    --accent2: #1a7a4a;
+    --text: #1a1a1a;
+    --muted: #666;
+    --red: #c0392b;
+    --yellow: #b7770d;
+    --label-w: 90px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    padding: 14px;
+    min-height: 100vh;
+  }
+  h3 {
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+  }
+  .panel {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+  .row label { color: var(--muted); min-width: var(--label-w); font-size: 12px; }
+
+  button {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 4px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    border-radius: 3px;
+    transition: background 0.12s;
+  }
+  button:hover { background: #e8f0f8; }
+  button.btn-green {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    padding: 6px 0;
+    font-size: 13px;
+    width: 100%;
+    margin-top: 8px;
+    font-weight: bold;
+  }
+  button.btn-green:hover { background: #e2f5ec; }
+  button.btn-decode {
+    border-color: var(--yellow);
+    color: var(--yellow);
+    padding: 6px 0;
+    font-size: 13px;
+    width: 100%;
+    margin-top: 8px;
+    font-weight: bold;
+  }
+  button.btn-decode:hover { background: #fdf3dc; }
+
+  input[type=text], input[type=number] {
+    background: #fafaf8;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 7px;
+    font-family: inherit;
+    font-size: 13px;
+    width: 100px;
+    border-radius: 3px;
+  }
+  select {
+    background: #fafaf8;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 3px 7px;
+    font-family: inherit;
+    font-size: 13px;
+    border-radius: 3px;
+  }
+
+  canvas { display: block; }
+  #waveform-wrap { position: relative; width: 800px; height: 80px; }
+  #waveform, #overlay { position: absolute; left: 0; top: 0; border: 1px solid var(--border); }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 10px;
+  }
+  .info-item { display: flex; gap: 5px; font-size: 12px; }
+  .info-key { color: var(--muted); }
+  .info-val { color: var(--accent); font-weight: bold; }
+
+  .status { font-size: 12px; color: var(--muted); margin-top: 5px; min-height: 16px; }
+  .status.ok   { color: var(--accent2); }
+  .status.warn { color: var(--yellow); }
+  .status.err  { color: var(--red); }
+
+  #main-layout { display: flex; gap: 12px; align-items: flex-start; }
+  #left-col { width: 240px; flex-shrink: 0; }
+  #right-col { flex: 1; }
+
+  #result-wrap {
+    border: 1px solid var(--border);
+    background: #222;
+    display: inline-block;
+    line-height: 0;
+  }
+
+  .color-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    border: 1px solid;
+    border-radius: 3px;
+    margin-top: 2px;
+  }
+
+  #vis-banner {
+    display: none;
+    background: #eaf5ff;
+    border: 1px solid #2a6496;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #2a6496;
+    margin-bottom: 8px;
+  }
+
+  #save-btn {
+    display: none;
+    border-color: #555;
+    color: #555;
+    width: 100%;
+    margin-top: 8px;
+    padding: 5px 0;
+  }
+  #save-btn:hover { background: #f0f0f0; }
+</style>
+</head>
+<body>
+
+<div id="vis-banner"></div>
+
+<div class="panel">
+  <h3>Audio</h3>
+  <div class="row">
+    <button onclick="document.getElementById('file-input').click()">Upload</button>
+    <input type="file" id="file-input" accept="audio/*" style="display:none;">
+    <span id="filename" style="color:var(--muted);">&lt;no file&gt;</span>
+	<div style="margin-left:auto;"></div>
+    <button onclick="document.getElementById('start-time').value=document.getElementById('mouse-time').innerText;drawOverlay();">Set start</button>
+    <button onclick="document.getElementById('end-time').value=document.getElementById('mouse-time').innerText;drawOverlay();">Set end</button>
+    <span color:var(--muted); font-size:12px;">Mouse: <span id="mouse-time" style="color:var(--text);">--:--:--</span></span>
+  </div>
+  <div id="waveform-wrap">
+    <canvas id="waveform" width="800" height="80"></canvas>
+    <canvas id="overlay"  width="800" height="80"></canvas>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <label>Start</label>
+    <input type="text" id="start-time" value="00:00:00" style="width:80px;">
+    <label>End</label>
+    <input type="text" id="end-time" value="00:00:00" style="width:80px;">
+    <span style="margin-left:auto; color:var(--muted); font-size:12px;">Duration: <span id="duration" style="color:var(--text);">--:--:--</span></span>
+  </div>
+</div>
+
+<div id="main-layout">
+  <div id="left-col">
+    <div class="panel" id="settings-panel">
+      <h3>FFT</h3>
+      <div class="row">
+        <label>Window</label>
+        <input type="number" id="fft-window" value="128" step="1" min="32" style="width:80px;">
+      </div>
+      <div class="row">
+        <label>Hop size</label>
+        <input type="number" id="fft-hop" value="8" step="1" min="1" style="width:80px;">
+      </div>
+      <div class="row">
+        <label>Freq min</label>
+        <input type="number" id="fft-freq-lo" value="400" style="width:65px;">
+        <span style="color:var(--muted); font-size:12px;">Hz</span>
+      </div>
+      <div class="row">
+        <label>Freq max</label>
+        <input type="number" id="fft-freq-hi" value="4000" style="width:65px;">
+        <span style="color:var(--muted); font-size:12px;">Hz</span>
+      </div>
+      <div class="row">
+        <label>Sync tol.</label>
+        <input type="number" id="sync-tol" value="30" step="1" min="5" max="80" style="width:60px;">
+        <span style="color:var(--muted); font-size:12px;">%</span>
+      </div>
+	  <button id="lock-sync-btn" onclick="toggleLockSync()" style="
+        width:100%; margin-top:8px; padding:5px 0; font-size:12px;
+        border-color:#888; color:#888;">Lock Sync: OFF</button>
+      <button class="btn-green" onclick="acceptRange()">Run FFT</button>
+      <span id="accept-status" class="status"></span>
+
+      <br><br>
+      <h3>Mode</h3>
+      <div class="row">
+        <label>System</label>
+        <select id="system-select" onchange="onSystemChange()">
+          <option value="Martin">Martin</option>
+          <option value="Scottie">Scottie</option>
+          <option value="Robot">Robot</option>
+          <option value="PD">PD</option>
+          <option value="Wraase">Wraase</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Mode</label>
+        <select id="mode-select" onchange="onModeChange()"></select>
+      </div>
+      <div class="row">
+        <label>Color</label>
+        <span id="color-display" class="color-badge"></span>
+      </div>
+
+      <br>
+      <h3>Mode Info</h3>
+      <div class="info-grid" id="mode-info"></div>
+
+      <br>
+      <h3>Adjustments</h3>
+      <div class="row">
+        <label>Offset</label>
+        <input type="number" id="adj-offset" value="0" step="0.1" style="width:70px;">
+        <span style="color:var(--muted); font-size:12px;">ms</span>
+      </div>
+      <div class="row">
+        <input type="range" id="adj-offset-slider" min="-500" max="500" step="0.1" value="0" style="width:100%;">
+      </div>
+      <div class="row">
+        <label>Skew</label>
+        <input type="number" id="adj-skew" value="0" step="0.001" style="width:70px;">
+        <span style="color:var(--muted); font-size:12px;">ms/line</span>
+      </div>
+      <div class="row">
+        <input type="range" id="adj-skew-slider" min="-5" max="5" step="0.001" value="0" style="width:100%;">
+      </div>
+      <button class="btn-decode" onclick="decode()">&#9654; Decode</button>
+      <div id="decode-status" class="status"></div>
+      <button id="save-btn" onclick="saveImage()">&#8595; Save Image</button>
+    </div>
+  </div>
+
+  <div id="right-col">
+    <div class="panel" style="padding:8px;">
+      <h3>Decoded Image</h3>
+      <div id="result-wrap">
+        <canvas id="result" width="320" height="256"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// SSTV MODE DATABASE
+// ============================================================
+const SSTV_MODES = {
+  Martin: {
+    'M1': { color:'RGB', lines:256, cols:320, syncMs:4.862, porchMs:0.572, channelMs:146.432, vis:44, txSec:114 },
+    'M2': { color:'RGB', lines:256, cols:320, syncMs:4.862, porchMs:0.572, channelMs:73.216,  vis:40, txSec:58  },
+    'M3': { color:'RGB', lines:128, cols:320, syncMs:4.862, porchMs:0.572, channelMs:146.432, vis:36, txSec:57  },
+    'M4': { color:'RGB', lines:128, cols:320, syncMs:4.862, porchMs:0.572, channelMs:73.216,  vis:32, txSec:29  },
+  },
+  Scottie: {
+    'S1':  { color:'RGB', lines:256, cols:320, syncMs:9.0, separatorMs:1.5, channelMs:138.240, vis:60, txSec:110 },
+    'S2':  { color:'RGB', lines:256, cols:320, syncMs:9.0, separatorMs:1.5, channelMs:88.064,  vis:56, txSec:71  },
+    'S3':  { color:'RGB', lines:128, cols:320, syncMs:9.0, separatorMs:1.5, channelMs:138.240, vis:52, txSec:55  },
+    'S4':  { color:'RGB', lines:128, cols:320, syncMs:9.0, separatorMs:1.5, channelMs:88.064,  vis:48, txSec:36  },
+    'SDX': { color:'RGB', lines:256, cols:320, syncMs:9.0, separatorMs:1.5, channelMs:345.600, vis:76, txSec:269 },
+  },
+  Robot: {
+    'R12': { color:'YC420', lines:120, cols:160, syncMs:9.0,  sep1Ms:3.0, yMs:60.0,  sep2Ms:6.0,  cMs:30.0, vis:0,  txSec:12 },
+    'R36': { color:'YC420', lines:240, cols:320, syncMs:9.0,  sep1Ms:3.0, yMs:88.0,  sep2Ms:6.0,  cMs:44.0, vis:8,  txSec:36 },
+    'R24': { color:'YC422', lines:120, cols:320, syncMs:12.0, porchMs:3.0, yMs:88.0,  gapMs:6.0,   cMs:44.0, vis:4,  txSec:24 },
+    'R72': { color:'YC422', lines:240, cols:320, syncMs:9.0,  porchMs:3.0, yMs:138.0, gapMs:6.0,   cMs:69.0, vis:12, txSec:72 },
+    'BW8': { color:'BW',    lines:120, cols:160, syncMs:10.0, porchMs:3.0, yMs:56.0,               vis:2,  txSec:8  },
+    'BW12':{ color:'BW',    lines:120, cols:160, syncMs:7.0,  porchMs:3.0, yMs:93.0,               vis:6,  txSec:12 },
+    'BW24':{ color:'BW',    lines:240, cols:320, syncMs:12.0, porchMs:3.0, yMs:93.0,               vis:6,  txSec:24 },
+    'BW36':{ color:'BW',    lines:240, cols:320, syncMs:12.0, porchMs:3.0, yMs:138.0,              vis:6,  txSec:36 },
+  },
+  PD: {
+    'PD50':  { color:'YCrCb', lines:256, cols:320, syncMs:20.0, porchMs:2.08, channelMs:91.52,   vis:93, txSec:50  },
+    'PD90':  { color:'YCrCb', lines:256, cols:320, syncMs:20.0, porchMs:2.08, channelMs:170.24,  vis:99, txSec:90  },
+    'PD120': { color:'YCrCb', lines:496, cols:640, syncMs:20.0, porchMs:2.08, channelMs:121.6,   vis:95, txSec:126 },
+    'PD160': { color:'YCrCb', lines:400, cols:512, syncMs:20.0, porchMs:2.08, channelMs:195.584, vis:98, txSec:161 },
+    'PD180': { color:'YCrCb', lines:496, cols:640, syncMs:20.0, porchMs:2.08, channelMs:183.04,  vis:96, txSec:187 },
+    'PD240': { color:'YCrCb', lines:496, cols:640, syncMs:20.0, porchMs:2.08, channelMs:244.48,  vis:97, txSec:248 },
+    'PD290': { color:'YCrCb', lines:616, cols:800, syncMs:20.0, porchMs:2.08, channelMs:228.8,   vis:96, txSec:289 },
+  },
+  Wraase: {
+    'SC2-30':  { color:'RGB', lines:128, cols:256, syncMs:5.0,    porchMs:0.5, rMs:58.0,  gMs:117.0, bMs:58.0,  vis:32, txSec:30  },
+    'SC2-60':  { color:'RGB', lines:256, cols:256, syncMs:5.0,    porchMs:0.5, rMs:58.0,  gMs:117.0, bMs:58.0,  vis:34, txSec:60  },
+    'SC2-120': { color:'RGB', lines:256, cols:320, syncMs:5.0,    porchMs:0.5, rMs:117.0, gMs:235.0, bMs:117.0, vis:36, txSec:120 },
+    'SC2-180': { color:'RGB', lines:256, cols:320, syncMs:5.5225, porchMs:0.5, rMs:235.0, gMs:235.0, bMs:235.0, vis:38, txSec:180 },
+  }
+};
+
+var VIS_MAP = {};
+(function() {
+  Object.keys(SSTV_MODES).forEach(function(sys) {
+    Object.keys(SSTV_MODES[sys]).forEach(function(modeName) {
+      var m = SSTV_MODES[sys][modeName];
+      if (m.vis !== undefined && m.vis !== null && m.vis > 0) {
+        VIS_MAP[m.vis] = { system: sys, mode: modeName };
+      }
+    });
+  });
+})();
+
+// ============================================================
+// STATE
+// ============================================================
+var audioDuration = 0;
+var audioBuffer = null;
+var peakFreqArray = [];
+var syncPulses = [];
+var detectedVIS = null;
+var hasDecoded = false;
+var syncLocked = false;
+
+// ============================================================
+// UI — MODE SELECTORS
+// ============================================================
+function onSystemChange() {
+  var sys = document.getElementById('system-select').value;
+  var modeSelect = document.getElementById('mode-select');
+  modeSelect.innerHTML = '';
+  Object.keys(SSTV_MODES[sys]).forEach(function(k) {
+    var opt = document.createElement('option');
+    opt.value = k; opt.textContent = k;
+    modeSelect.appendChild(opt);
+  });
+  onModeChange();
+}
+
+function getSelectedMode() {
+  var sys  = document.getElementById('system-select').value;
+  var mode = document.getElementById('mode-select').value;
+  return (SSTV_MODES[sys] && SSTV_MODES[sys][mode]) ? SSTV_MODES[sys][mode] : null;
+}
+
+function computeLineTimeMs(m) {
+  if (!m) return 0;
+  var sys = document.getElementById('system-select').value;
+  if (sys === 'Martin') {
+    var p = m.porchMs;
+    return m.syncMs + p + m.channelMs + p + m.channelMs + p + m.channelMs + p;
+  }
+  if (sys === 'Scottie') {
+    var sep = m.separatorMs;
+    return sep + m.channelMs + sep + m.channelMs + m.syncMs + sep + m.channelMs;
+  }
+  if (sys === 'Robot') {
+    if (m.color === 'BW')    return m.syncMs + m.porchMs + m.yMs;
+    if (m.color === 'YC420') return m.syncMs + m.sep1Ms  + m.yMs + m.sep2Ms + m.cMs;
+    if (m.color === 'YC422') return m.syncMs + m.porchMs + m.yMs + m.gapMs  + m.cMs + m.cMs;
+  }
+  if (sys === 'PD') return m.syncMs + m.porchMs + m.channelMs * 4;
+  if (sys === 'Wraase') return m.syncMs + m.porchMs + m.rMs + m.gMs + m.bMs;
+  return 0;
+}
+
+function onModeChange() {
+  var m = getSelectedMode();
+  if (!m) return;
+  var cb = document.getElementById('color-display');
+  var colorMap = { RGB:'#1a5fa0', YCrCb:'#b7770d', YC420:'#b06000', YC422:'#c07800', BW:'#555' };
+  cb.textContent  = m.color;
+  cb.style.borderColor = colorMap[m.color] || '#888';
+  cb.style.color       = colorMap[m.color] || '#888';
+
+  var lineTimeMs = computeLineTimeMs(m);
+  var sys = document.getElementById('system-select').value;
+  var fields = [
+    ['Lines', m.lines], ['Cols', m.cols],
+    ['TX time', m.txSec + ' s'],
+    ['Sync', m.syncMs + ' ms'],
+    ['Line time', lineTimeMs.toFixed(2) + ' ms'],
+    ['VIS', m.vis],
+  ];
+  if (sys === 'PD')    fields.push(['Format', '4:2:0, 2 rows/sync']);
+  if (sys === 'Robot') fields.push(['Format', m.color === 'YC420' ? '4:2:0 interlaced' :
+                                               m.color === 'YC422' ? '4:2:2 progressive' : m.color]);
+  document.getElementById('mode-info').innerHTML = fields.map(function(f) {
+    return '<div class="info-item"><span class="info-key">' + f[0] + ':</span><span class="info-val">' + f[1] + '</span></div>';
+  }).join('');
+  updateAdjSliderRanges();
+}
+
+onSystemChange();
+
+// ============================================================
+// UTILS
+// ============================================================
+function secToHMS(sec) {
+  sec = Math.max(0, sec);
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+  return pad2(h)+':'+pad2(m)+':'+pad2(s);
+}
+function pad2(n) { return n<10?'0'+n:''+n; }
+function hmsToSec(str) {
+  var p = str.split(':');
+  if (p.length !== 3) return NaN;
+  return parseInt(p[0])*3600 + parseInt(p[1])*60 + parseFloat(p[2]);
+}
+function clamp255(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+// SSTV: 1500 Hz = black (0), 2300 Hz = white (255)
+function hzToBrightness(hz) { return clamp255((hz - 1500) / 800 * 255); }
+
+// ============================================================
+// FREQ SAMPLING — 加權平均，tCenter 為像素中央時間，halfWidth 為像素半寬（秒）
+// ============================================================
+function getFreqInRange(tCenter, halfWidth) {
+  var arr = peakFreqArray;
+  if (!arr.length) return 1900;
+
+  var tLo = tCenter - halfWidth;
+  var tHi = tCenter + halfWidth;
+
+  // binary search 找 tLo 附近的起始索引
+  var lo = 0, hi = arr.length - 1;
+  while (lo < hi) {
+    var mid = (lo + hi) >> 1;
+    if (arr[mid].t < tLo) lo = mid + 1; else hi = mid;
+  }
+  // 往前一格避免邊界遺漏
+  if (lo > 0) lo--;
+
+  var sumW = 0, sumHz = 0;
+  for (var i = lo; i < arr.length; i++) {
+    var t = arr[i].t;
+    if (t > tHi + halfWidth) break;  // 超出範圍太多就停
+
+    var dist = Math.abs(t - tCenter);
+    var w;
+    if (dist <= halfWidth) {
+      // 範圍內：線性權重（中央最大）
+      w = 1 - dist / halfWidth;
+    } else {
+      // 範圍外少量軟邊，避免硬截斷
+      var over = dist - halfWidth;
+      w = Math.max(0, 0.2 * (1 - over / halfWidth));
+    }
+
+    if (w <= 0) continue;
+    sumW  += w;
+    sumHz += arr[i].hz * w;
+  }
+
+  if (sumW === 0) {
+    // 退化成最近鄰線性插值
+    return getFreqAtFallback(tCenter);
+  }
+  return sumHz / sumW;
+}
+
+// 備用：線性插值（無加權平均可用時）
+function getFreqAtFallback(t) {
+  var arr = peakFreqArray;
+  if (!arr.length) return 1900;
+  var lo = 0, hi = arr.length - 1;
+  while (lo < hi) {
+    var mid = (lo + hi) >> 1;
+    if (arr[mid].t < t) lo = mid + 1; else hi = mid;
+  }
+  if (lo > 0 && lo < arr.length) {
+    var t0 = arr[lo-1].t, t1 = arr[lo].t;
+    if (t1 > t0) {
+      var f = (t - t0) / (t1 - t0);
+      return arr[lo-1].hz * (1 - f) + arr[lo].hz * f;
+    }
+  }
+  return arr[lo].hz;
+}
+
+// ============================================================
+// WAVEFORM DRAWING
+// ============================================================
+function drawWaveform(buf) {
+  var canvas = document.getElementById('waveform');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+  var data = buf.getChannelData(0);
+  var step = Math.ceil(data.length / w);
+  ctx.fillStyle = '#f8f8f5'; ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#2a6496'; ctx.lineWidth = 1; ctx.beginPath();
+  for (var x = 0; x < w; x++) {
+    var mn = 1, mx = -1;
+    for (var j = 0; j < step; j++) {
+      var v = data[x*step+j] || 0;
+      if (v < mn) mn = v; if (v > mx) mx = v;
+    }
+    var yLo = (1-(mn+1)/2)*h, yHi = (1-(mx+1)/2)*h;
+    if (x === 0) ctx.moveTo(x, yHi); else ctx.lineTo(x, yHi);
+    ctx.lineTo(x, yLo);
+  }
+  ctx.stroke();
+}
+
+var clickLineX = -1;
+function drawOverlay() {
+  var canvas = document.getElementById('overlay');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (audioDuration <= 0) return;
+  var s0 = hmsToSec(document.getElementById('start-time').value);
+  var s1 = hmsToSec(document.getElementById('end-time').value);
+  if (!isNaN(s0) && !isNaN(s1) && s1 > s0) {
+    var x1 = s0/audioDuration*w, x2 = s1/audioDuration*w;
+    ctx.fillStyle = 'rgba(42,200,50,0.3)'; ctx.fillRect(x1, 0, x2-x1, h);
+    ctx.strokeStyle = '#2acc64'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x1,0); ctx.lineTo(x1,h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2,0); ctx.lineTo(x2,h); ctx.stroke();
+  }
+  if (clickLineX >= 0) {
+    ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(clickLineX,0); ctx.lineTo(clickLineX,h); ctx.stroke();
+  }
+}
+
+document.getElementById('overlay').addEventListener('click', function(e) {
+  if (audioDuration <= 0) return;
+  var rect = this.getBoundingClientRect();
+  var x = (e.clientX - rect.left) * (this.width / rect.width);
+  var sec = x / this.width * audioDuration;
+  document.getElementById('mouse-time').textContent = secToHMS(sec);
+  clickLineX = x; drawOverlay();
+});
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'start-time' || e.target.id === 'end-time') drawOverlay();
+});
+
+// ============================================================
+// FILE UPLOAD
+// ============================================================
+var filename = "";
+document.getElementById('file-input').addEventListener('change', function(e) {
+  var file = e.target.files[0]; if (!file) return;
+  filename = file.name;
+  document.getElementById('filename').textContent = file.name;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var actx = new (window.AudioContext || window.webkitAudioContext)();
+    actx.decodeAudioData(ev.target.result, function(buf) {
+      audioBuffer = buf; audioDuration = buf.duration;
+      document.getElementById('start-time').value = secToHMS(0);
+      document.getElementById('end-time').value   = secToHMS(audioDuration);
+      document.getElementById('duration').textContent = secToHMS(audioDuration);
+      drawWaveform(buf); clickLineX = -1; drawOverlay(); actx.close();
+    });
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// ============================================================
+// FFT — Cooley-Tukey in-place
+// ============================================================
+function nextPow2(n) { var p = 1; while (p < n) p <<= 1; return p; }
+function fft(re, im) {
+  var N = re.length;
+  for (var i=1,j=0; i<N; i++) {
+    var bit = N>>1;
+    for (; j&bit; bit>>=1) j^=bit; j^=bit;
+    if (i<j) { var t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; }
+  }
+  for (var len=2; len<=N; len<<=1) {
+    var ang=-2*Math.PI/len, wRe=Math.cos(ang), wIm=Math.sin(ang);
+    for (var ii=0; ii<N; ii+=len) {
+      var cRe=1, cIm=0;
+      for (var jj=0; jj<len/2; jj++) {
+        var uRe=re[ii+jj], uIm=im[ii+jj];
+        var vRe=re[ii+jj+len/2]*cRe - im[ii+jj+len/2]*cIm;
+        var vIm=re[ii+jj+len/2]*cIm + im[ii+jj+len/2]*cRe;
+        re[ii+jj]=uRe+vRe; im[ii+jj]=uIm+vIm;
+        re[ii+jj+len/2]=uRe-vRe; im[ii+jj+len/2]=uIm-vIm;
+        var nRe=cRe*wRe-cIm*wIm; cIm=cRe*wIm+cIm*wRe; cRe=nRe;
+      }
+    }
+  }
+}
+
+// ============================================================
+// VIS CODE DETECTION
+// ============================================================
+function getFreqAtTime(peaks, t) {
+  if (!peaks.length) return 1200;
+  var lo = 0, hi = peaks.length - 1;
+  while (lo < hi) { var mid=(lo+hi)>>1; if (peaks[mid].t < t) lo=mid+1; else hi=mid; }
+  if (lo > 0 && Math.abs(peaks[lo-1].t - t) < Math.abs(peaks[lo].t - t)) lo--;
+  return peaks[lo].hz;
+}
+
+function detectVISCodes(peaks, sr) {
+  var results = [];
+  if (!peaks.length) return results;
+  var hopSec = (parseInt(document.getElementById('fft-hop').value) || 8) / sr;
+  var gapAllow = hopSec * 4;
+
+  var leaderRuns = [];
+  var inL = false, lStart = 0, lEnd = 0;
+  for (var i = 0; i < peaks.length; i++) {
+    var hz = peaks[i].hz;
+    var isL = hz >= 1820 && hz <= 1980;
+    if (isL) {
+      if (!inL) { inL=true; lStart=peaks[i].t; lEnd=peaks[i].t; }
+      else if (peaks[i].t - lEnd <= gapAllow) lEnd = peaks[i].t;
+      else {
+        if ((lEnd-lStart) >= 0.08) leaderRuns.push({s:lStart, e:lEnd});
+        lStart=peaks[i].t; lEnd=peaks[i].t;
+      }
+    } else {
+      if (inL) { if ((lEnd-lStart) >= 0.08) leaderRuns.push({s:lStart, e:lEnd}); inL=false; }
+    }
+  }
+  if (inL && (lEnd-lStart) >= 0.08) leaderRuns.push({s:lStart, e:lEnd});
+
+  for (var li = 0; li < leaderRuns.length; li++) {
+    var L2 = leaderRuns[li];
+    if ((L2.e - L2.s) < 0.08) continue;
+
+    var breakEnd = L2.s;
+    var breakStart = breakEnd - 0.025;
+    var breakSamples = peaks.filter(function(p) { return p.t >= breakStart-0.01 && p.t <= breakEnd+0.005; });
+    if (!breakSamples.length) continue;
+    var breakHz = breakSamples.reduce(function(a,b){return a+b.hz;},0)/breakSamples.length;
+    if (breakHz < 1100 || breakHz > 1350) continue;
+
+    var L1 = null;
+    for (var li2 = li-1; li2 >= 0; li2--) {
+      var cand = leaderRuns[li2];
+      if (cand.e >= breakStart-0.05 && cand.e <= breakStart+0.01) { L1=cand; break; }
+    }
+    if (!L1 || (L1.e - L1.s) < 0.08) continue;
+
+    var tBitStart = L2.e;
+    if (getFreqAtTime(peaks, tBitStart+0.015) < 1100 || getFreqAtTime(peaks, tBitStart+0.015) > 1350) continue;
+
+    var bits = [], bitOk = true;
+    for (var b = 0; b < 8; b++) {
+      var bHz = getFreqAtTime(peaks, tBitStart + 0.030 + b*0.030 + 0.015);
+      if (bHz >= 1050 && bHz <= 1200) bits.push(1);
+      else if (bHz >= 1200 && bHz <= 1350) bits.push(0);
+      else { bitOk=false; break; }
+    }
+    if (!bitOk) continue;
+
+    var visByte = 0;
+    for (var b = 0; b < 7; b++) visByte |= (bits[b] << b);
+
+    var ones = 0; for (var b = 0; b < 7; b++) ones += bits[b];
+    if (bits[7] !== ((ones % 2 === 0) ? 1 : 0)) continue;
+
+    var tStop = tBitStart + 0.030 + 8*0.030 + 0.015;
+    var stopHz = getFreqAtTime(peaks, tStop);
+    if (stopHz < 1100 || stopHz > 1350) continue;
+
+    var visEndSec = tBitStart + 0.030 + 8*0.030 + 0.030;
+    var entry = VIS_MAP[visByte];
+    results.push({ visByte:visByte, system:entry?entry.system:null, mode:entry?entry.mode:null,
+                   visStartSec:L1.s, visEndSec:visEndSec });
+  }
+  return results;
+}
+
+// ============================================================
+// ACCEPT RANGE — Run FFT
+// ============================================================
+function acceptRange() {
+  if (!audioBuffer) { alert('請先上傳音訊檔案'); return; }
+  var startSec = hmsToSec(document.getElementById('start-time').value);
+  var endSec   = hmsToSec(document.getElementById('end-time').value);
+  if (isNaN(startSec) || isNaN(endSec) || endSec <= startSec) { alert('時間設定有誤'); return; }
+
+  var sr = audioBuffer.sampleRate;
+  var pcm = audioBuffer.getChannelData(0);
+  var winSize = nextPow2(parseInt(document.getElementById('fft-window').value) || 128);
+  var hopSize = parseInt(document.getElementById('fft-hop').value) || 8;
+  var startSmp = Math.round(startSec * sr);
+  var endSmp   = Math.round(endSec   * sr);
+  var hzMin = parseFloat(document.getElementById('fft-freq-lo').value) || 400;
+  var hzMax = parseFloat(document.getElementById('fft-freq-hi').value) || 4000;
+  var binLo = Math.floor(hzMin * winSize / sr);
+  var binHi = Math.ceil( hzMax * winSize / sr);
+
+  peakFreqArray = [];
+  var re = new Float64Array(winSize), im = new Float64Array(winSize);
+  var total = Math.floor((endSmp - startSmp - winSize) / hopSize) + 1;
+
+  for (var w = 0; w < total; w++) {
+    var off = startSmp + w * hopSize;
+    for (var i = 0; i < winSize; i++) {
+      var hann = 0.5 * (1 - Math.cos(2*Math.PI*i/(winSize-1)));
+      re[i] = (off+i < endSmp ? pcm[off+i] : 0) * hann;
+      im[i] = 0;
+    }
+    fft(re, im);
+    var peakBin = binLo, peakMag = 0;
+    for (var b = binLo; b <= binHi && b < winSize/2; b++) {
+      var mag = re[b]*re[b] + im[b]*im[b];
+      if (mag > peakMag) { peakMag = mag; peakBin = b; }
+    }
+    var hz;
+    if (peakBin > 0 && peakBin < winSize/2 - 1) {
+      var mL = Math.sqrt(re[peakBin-1]*re[peakBin-1] + im[peakBin-1]*im[peakBin-1]);
+      var mC = Math.sqrt(peakMag);
+      var mR = Math.sqrt(re[peakBin+1]*re[peakBin+1] + im[peakBin+1]*im[peakBin+1]);
+      var denom = mL - 2*mC + mR;
+      hz = (peakBin + (denom !== 0 ? 0.5*(mL-mR)/denom : 0)) * sr / winSize;
+    } else {
+      hz = peakBin * sr / winSize;
+    }
+    peakFreqArray.push({ t: startSec + w * hopSize / sr, hz: hz });
+  }
+
+  var visCodes = detectVISCodes(peakFreqArray, sr);
+  detectedVIS = visCodes.length > 0 ? visCodes[0] : null;
+  var visBanner = document.getElementById('vis-banner');
+  if (detectedVIS) {
+    visBanner.style.display = 'block';
+    if (detectedVIS.system && detectedVIS.mode) {
+      visBanner.innerHTML = '&#9654; VIS detected: <strong>' + detectedVIS.system + ' ' + detectedVIS.mode +
+        '</strong> (0x' + detectedVIS.visByte.toString(16).toUpperCase().padStart(2,'0') + ') — Mode selector updated.';
+      setModeFromVIS(detectedVIS.system, detectedVIS.mode);
+    } else {
+      visBanner.innerHTML = '&#9654; VIS byte 0x' + detectedVIS.visByte.toString(16).toUpperCase().padStart(2,'0') + ' detected (unknown mode).';
+    }
+  } else {
+    visBanner.style.display = 'none';
+  }
+
+  var m = getSelectedMode();
+  var tolPct = parseFloat(document.getElementById('sync-tol').value) || 30;
+  var visExcl = visCodes.map(function(v) { return {from:v.visStartSec-0.05, to:v.visEndSec+0.05}; });
+  if (!syncLocked) syncPulses = findSyncPulses(peakFreqArray, m ? m.syncMs : 10, sr, tolPct, visExcl);
+
+  var st = document.getElementById('accept-status');
+  st.className = 'status ok';
+  var visMsg = detectedVIS ? (' | VIS: ' + (detectedVIS.mode || '0x'+detectedVIS.visByte.toString(16))) : '';
+  st.textContent = peakFreqArray.length + ' windows, ' + syncPulses.length + ' sync pulses' + visMsg;
+
+  if (hasDecoded && peakFreqArray.length > 0) decode();
+}
+
+function setModeFromVIS(system, mode) {
+  var ss = document.getElementById('system-select');
+  var ms = document.getElementById('mode-select');
+  if (!ss || !ms) return;
+  ss.value = system; onSystemChange();
+  ms.value = mode;   onModeChange();
+}
+
+// ============================================================
+// SYNC PULSE DETECTION
+// ============================================================
+function findSyncPulses(peaks, nominalMs, sr, tolPct, visExcl) {
+  if (!peaks.length) return [];
+  visExcl = visExcl || [];
+  var hopSec = (parseInt(document.getElementById('fft-hop').value) || 8) / sr;
+  var gapAllow = hopSec * 3;
+  var minMs = nominalMs * (1 - tolPct/100);
+  var maxMs = nominalMs * (1 + tolPct/100);
+
+  function inExcl(t) {
+    for (var i = 0; i < visExcl.length; i++) if (t >= visExcl[i].from && t <= visExcl[i].to) return true;
+    return false;
+  }
+
+  var runs = [], inRun = false, runStart = 0, runEnd = 0, sumHz = 0, cnt = 0;
+  for (var i = 0; i < peaks.length; i++) {
+    var p = peaks[i];
+    if (inExcl(p.t)) { if (inRun) { runs.push({startSec:runStart,endSec:runEnd,avgHz:sumHz/cnt}); inRun=false; } continue; }
+    var isCand = p.hz >= 1100 && p.hz <= 1300;
+    if (isCand) {
+      if (!inRun) { inRun=true; runStart=p.t; runEnd=p.t; sumHz=p.hz; cnt=1; }
+      else if (p.t - runEnd <= gapAllow) { runEnd=p.t; sumHz+=p.hz; cnt++; }
+      else { runs.push({startSec:runStart,endSec:runEnd,avgHz:sumHz/cnt}); runStart=p.t; runEnd=p.t; sumHz=p.hz; cnt=1; }
+    } else {
+      if (inRun) { runs.push({startSec:runStart,endSec:runEnd,avgHz:sumHz/cnt}); inRun=false; }
+    }
+  }
+  if (inRun) runs.push({startSec:runStart,endSec:runEnd,avgHz:sumHz/cnt});
+
+  var halfHop = hopSec / 2;
+  return runs.filter(function(r) {
+    var dur = (r.endSec - r.startSec) + hopSec;
+    r.durationMs = dur * 1000;
+    r.midSec     = (r.startSec + r.endSec) / 2;
+    r.anchorSec  = r.endSec + halfHop;
+    return r.durationMs >= minMs && r.durationMs <= maxMs;
+  });
+}
+
+// ============================================================
+// BUILD LINE ANCHORS
+// ============================================================
+function buildLineAnchors(syncPulses, lineTimeSec, peakStart, peakEnd) {
+  if (!syncPulses.length) {
+    var anchors = [], t = peakStart;
+    while (t < peakEnd) { anchors.push({anchorSec:t, interpolated:true}); t += lineTimeSec; }
+    return anchors;
+  }
+
+  var avgLineSec = lineTimeSec;
+
+  var result = [];
+  var first = syncPulses[0].anchorSec;
+  var t = first;
+  while (t - avgLineSec >= peakStart - avgLineSec*0.5) t -= avgLineSec;
+  while (t < first - avgLineSec*0.5) {
+    if (t >= peakStart - avgLineSec*0.5) result.push({anchorSec:t, interpolated:true});
+    t += avgLineSec;
+  }
+  for (var i = 0; i < syncPulses.length; i++) {
+    var cur = syncPulses[i].anchorSec;
+    if (i > 0) {
+      var prev = syncPulses[i-1].anchorSec;
+      var gap = cur - prev;
+      var mult = Math.round(gap / avgLineSec);
+      if (mult > 1) for (var k = 1; k < mult; k++) result.push({anchorSec:prev + k*(gap/mult), interpolated:true});
+    }
+    result.push({anchorSec:cur, interpolated:false});
+  }
+  var last = syncPulses[syncPulses.length-1].anchorSec;
+  t = last + avgLineSec;
+  while (t <= peakEnd + avgLineSec*0.5) { result.push({anchorSec:t, interpolated:true}); t += avgLineSec; }
+  return result;
+}
+
+// ============================================================
+// FREQUENCY SHIFT CORRECTION
+// ============================================================
+function applyFreqShift(peaks, syncPulses) {
+  if (!syncPulses.length) return peaks;
+  var shiftPts = syncPulses.map(function(s) { return {t:s.midSec, shift:1200-s.avgHz}; });
+  return peaks.map(function(p) {
+    var shift = interpShift(shiftPts, p.t);
+    return {t:p.t, hz:p.hz+shift};
+  });
+}
+function interpShift(pts, t) {
+  if (!pts.length) return 0;
+  if (t <= pts[0].t) return pts[0].shift;
+  if (t >= pts[pts.length-1].t) return pts[pts.length-1].shift;
+  for (var i = 0; i < pts.length-1; i++) {
+    if (t >= pts[i].t && t <= pts[i+1].t) {
+      var f = (t - pts[i].t) / (pts[i+1].t - pts[i].t);
+      return pts[i].shift + f*(pts[i+1].shift - pts[i].shift);
+    }
+  }
+  return 0;
+}
+
+// ============================================================
+// COLOR HELPERS
+// ============================================================
+function ycToRgb(Y, Cr, Cb) {
+  Cr -= 128; Cb -= 128;
+  return [
+    clamp255(Y + 1.402 * Cr),
+    clamp255(Y - 0.344136 * Cb - 0.714136 * Cr),
+    clamp255(Y + 1.772 * Cb)
+  ];
+}
+function writePixel(data, idx, r, g, b) {
+  if (idx + 3 >= data.length) return;
+  data[idx]=r; data[idx+1]=g; data[idx+2]=b; data[idx+3]=255;
+}
+
+// ============================================================
+// DECODE MARTIN
+// anchor = end of sync → porch → G → porch → B → porch → R → porch
+// halfWidth = 像素時間寬度的一半
+// ============================================================
+function decodeMartin(lineAnchors, m, data, cols) {
+  var porch  = m.porchMs   / 1000;
+  var chSec  = m.channelMs / 1000;
+  var halfW  = chSec / cols / 2;   // 每像素半寬
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var a  = lineAnchors[li].anchorSec;
+    var tG = a + porch;
+    var tB = tG + chSec + porch;
+    var tR = tB + chSec + porch;
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;  // 0~1 的像素中央比例
+      var idx = (li * cols + col) * 4;
+      writePixel(data, idx,
+        hzToBrightness(getFreqInRange(tR + tCenter * chSec, halfW)),
+        hzToBrightness(getFreqInRange(tG + tCenter * chSec, halfW)),
+        hzToBrightness(getFreqInRange(tB + tCenter * chSec, halfW))
+      );
+    }
+  }
+}
+
+// ============================================================
+// DECODE SCOTTIE
+// anchor = end of sync → sep → R; G/B 在 sync 之前
+// ============================================================
+function decodeScottie(lineAnchors, m, data, cols) {
+  var sep   = m.separatorMs / 1000;
+  var chSec = m.channelMs   / 1000;
+  var halfW = chSec / cols / 2;
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var a  = lineAnchors[li].anchorSec;
+    var tR = a + sep;
+    var tB = a - chSec - sep;
+    var tG = tB - chSec - sep;
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;
+      var idx = (li * cols + col) * 4;
+      writePixel(data, idx,
+        hzToBrightness(getFreqInRange(tR + tCenter * chSec, halfW)),
+        hzToBrightness(getFreqInRange(tG + tCenter * chSec, halfW)),
+        hzToBrightness(getFreqInRange(tB + tCenter * chSec, halfW))
+      );
+    }
+  }
+}
+
+// ============================================================
+// DECODE ROBOT — BW
+// ============================================================
+function decodeRobotBW(lineAnchors, m, data, cols) {
+  var porch = m.porchMs / 1000;
+  var ySec  = m.yMs    / 1000;
+  var halfW = ySec / cols / 2;
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var tY = lineAnchors[li].anchorSec + porch;
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;
+      var v   = hzToBrightness(getFreqInRange(tY + tCenter * ySec, halfW));
+      var idx = (li * cols + col) * 4;
+      writePixel(data, idx, v, v, v);
+    }
+  }
+}
+
+// ============================================================
+// DECODE ROBOT — 4:2:0 (R12, R36)
+// ============================================================
+function decodeRobot420(lineAnchors, m, data, cols) {
+  var sep1Sec = m.sep1Ms / 1000;
+  var ySec    = m.yMs    / 1000;
+  var sep2Sec = m.sep2Ms / 1000;
+  var cSec    = m.cMs    / 1000;
+  var halfWY  = ySec / cols / 2;
+  var halfWC  = cSec / cols / 2;
+
+  var yBuf = [], chromaBuf = [], isCr = [];
+
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var a     = lineAnchors[li].anchorSec;
+    var tY    = a + sep1Sec;
+    var tSep2 = tY + ySec;
+    var tC    = tSep2 + sep2Sec;
+
+    var sep2Hz = getFreqInRange(tSep2 + sep2Sec * 0.5, sep2Sec * 0.25);
+    isCr[li] = (sep2Hz < 1900);
+
+    var yb = new Float32Array(cols);
+    var cb = new Float32Array(cols);
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;
+      yb[col] = hzToBrightness(getFreqInRange(tY + tCenter * ySec, halfWY));
+      cb[col] = hzToBrightness(getFreqInRange(tC + tCenter * cSec, halfWC));
+    }
+    yBuf[li]      = yb;
+    chromaBuf[li] = cb;
+  }
+
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var crBuf, cbBuf;
+    if (isCr[li]) {
+      crBuf = chromaBuf[li];
+      var cbIdx = -1;
+      if (li+1 < lineAnchors.length && !isCr[li+1]) cbIdx = li+1;
+      else if (li-1 >= 0 && !isCr[li-1]) cbIdx = li-1;
+      cbBuf = (cbIdx >= 0) ? chromaBuf[cbIdx] : chromaBuf[li];
+    } else {
+      cbBuf = chromaBuf[li];
+      var crIdx = -1;
+      if (li-1 >= 0 && isCr[li-1]) crIdx = li-1;
+      else if (li+1 < lineAnchors.length && isCr[li+1]) crIdx = li+1;
+      crBuf = (crIdx >= 0) ? chromaBuf[crIdx] : chromaBuf[li];
+    }
+    for (var col = 0; col < cols; col++) {
+      var rgb = ycToRgb(yBuf[li][col], crBuf[col], cbBuf[col]);
+      writePixel(data, (li * cols + col) * 4, rgb[0], rgb[1], rgb[2]);
+    }
+  }
+}
+
+// ============================================================
+// DECODE ROBOT — 4:2:2 (R24, R72)
+// ============================================================
+function decodeRobot422(lineAnchors, m, data, cols) {
+  var porch = m.porchMs / 1000;
+  var ySec  = m.yMs    / 1000;
+  var gap   = m.gapMs  / 1000;
+  var cSec  = m.cMs    / 1000;
+  var halfWY = ySec / cols / 2;
+  var halfWC = cSec / cols / 2;
+
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var a   = lineAnchors[li].anchorSec;
+    var tY  = a + porch;
+    var tCr = tY + ySec + gap;
+    var tCb = tCr + cSec;
+
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;
+      var rgb = ycToRgb(
+        hzToBrightness(getFreqInRange(tY  + tCenter * ySec, halfWY)),
+        hzToBrightness(getFreqInRange(tCr + tCenter * cSec, halfWC)),
+        hzToBrightness(getFreqInRange(tCb + tCenter * cSec, halfWC))
+      );
+      writePixel(data, (li * cols + col) * 4, rgb[0], rgb[1], rgb[2]);
+    }
+  }
+}
+
+// ============================================================
+// DECODE PD
+// [sync 20ms][porch 2.08ms][Y0][RY][BY][Y1] — 每個 sync 對應 2 個 image row
+// ============================================================
+function decodePD(lineAnchors, m, data, cols) {
+  var porch  = m.porchMs   / 1000;
+  var chSec  = m.channelMs / 1000;
+  var halfW  = chSec / cols / 2;
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var a   = lineAnchors[li].anchorSec;
+    var tY0 = a + porch;
+    var tCr = tY0 + chSec;
+    var tCb = tCr + chSec;
+    var tY1 = tCb + chSec;
+    var rowA = li * 2, rowB = li * 2 + 1;
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;
+      var cr  = hzToBrightness(getFreqInRange(tCr + tCenter * chSec, halfW));
+      var cb  = hzToBrightness(getFreqInRange(tCb + tCenter * chSec, halfW));
+      var rgbA = ycToRgb(hzToBrightness(getFreqInRange(tY0 + tCenter * chSec, halfW)), cr, cb);
+      var rgbB = ycToRgb(hzToBrightness(getFreqInRange(tY1 + tCenter * chSec, halfW)), cr, cb);
+      writePixel(data, (rowA * cols + col) * 4, rgbA[0], rgbA[1], rgbA[2]);
+      writePixel(data, (rowB * cols + col) * 4, rgbB[0], rgbB[1], rgbB[2]);
+    }
+  }
+}
+
+// ============================================================
+// DECODE WRAASE SC2
+// [sync][porch][R][G][B]  — R:G:B 各有不同持續時間
+// ============================================================
+function decodeWraase(lineAnchors, m, data, cols) {
+  var porch  = m.porchMs / 1000;
+  var rSec   = m.rMs / 1000;
+  var gSec   = m.gMs / 1000;
+  var bSec   = m.bMs / 1000;
+  var halfWR = rSec / cols / 2;
+  var halfWG = gSec / cols / 2;
+  var halfWB = bSec / cols / 2;
+  for (var li = 0; li < lineAnchors.length; li++) {
+    var a  = lineAnchors[li].anchorSec;
+    var tR = a + porch;
+    var tG = tR + rSec;
+    var tB = tG + gSec;
+    for (var col = 0; col < cols; col++) {
+      var tCenter = (col + 0.5) / cols;
+      var idx = (li * cols + col) * 4;
+      writePixel(data, idx,
+        hzToBrightness(getFreqInRange(tR + tCenter * rSec, halfWR)),
+        hzToBrightness(getFreqInRange(tG + tCenter * gSec, halfWG)),
+        hzToBrightness(getFreqInRange(tB + tCenter * bSec, halfWB))
+      );
+    }
+  }
+}
+
+// ============================================================
+// LOCK SYNC
+// ============================================================
+function toggleLockSync() {
+  var btn = document.getElementById('lock-sync-btn');
+  if (!syncLocked) {
+    syncLocked = true;
+    btn.style.borderColor = '#c07800';
+    btn.style.color = '#c07800';
+    btn.textContent = 'Lock Sync: ON (' + syncPulses.length + ')';
+  } else {
+    syncLocked = false;
+    btn.style.borderColor = '#888';
+    btn.style.color = '#888';
+    btn.textContent = 'Lock Sync: OFF';
+  }
+}
+
+// ============================================================
+// DECODE — main entry point
+// ============================================================
+function decode() {
+  var m = getSelectedMode();
+  if (!m)                    { setStatus('err',  '請選擇模式'); return; }
+  if (!peakFreqArray.length) { setStatus('warn', '請先 Run FFT'); return; }
+  setStatus('ok', '解碼中…');
+
+  var sr     = audioBuffer ? audioBuffer.sampleRate : 44100;
+  var sys    = document.getElementById('system-select').value;
+  var tolPct = parseFloat(document.getElementById('sync-tol').value) || 30;
+
+  var visExcl = detectedVIS ? [{from:detectedVIS.visStartSec-0.05, to:detectedVIS.visEndSec+0.05}] : [];
+  if (!syncLocked) syncPulses = findSyncPulses(peakFreqArray, m.syncMs, sr, tolPct, visExcl);
+
+  var corrected = applyFreqShift(peakFreqArray, syncPulses);
+
+  var savedPeaks = peakFreqArray;
+  peakFreqArray = corrected;
+
+  var lineTimeSec = computeLineTimeMs(m) / 1000;
+  var peakStart   = corrected[0].t;
+  var peakEnd     = corrected[corrected.length-1].t;
+  var lineAnchors = buildLineAnchors(syncPulses, lineTimeSec, peakStart, peakEnd);
+
+  var adjOffset = (parseFloat(document.getElementById('adj-offset').value) || 0) / 1000;
+  var adjSkew   = (parseFloat(document.getElementById('adj-skew').value)   || 0) / 1000;
+  for (var i = 0; i < lineAnchors.length; i++) {
+    lineAnchors[i].anchorSec += adjOffset + i * adjSkew;
+  }
+
+  var cols    = m.cols;
+  var isPD    = (sys === 'PD');
+  var canvasH = isPD ? lineAnchors.length * 2 : lineAnchors.length;
+
+  var canvas  = document.getElementById('result');
+  canvas.width  = cols;
+  canvas.height = Math.max(canvasH, 1);
+
+  var ctx     = canvas.getContext('2d');
+  var imgData = ctx.createImageData(cols, canvas.height);
+  var data    = imgData.data;
+
+  if      (sys === 'Martin')  decodeMartin(lineAnchors, m, data, cols);
+  else if (sys === 'Scottie') decodeScottie(lineAnchors, m, data, cols);
+  else if (sys === 'Robot') {
+    if      (m.color === 'BW')    decodeRobotBW(lineAnchors, m, data, cols);
+    else if (m.color === 'YC420') decodeRobot420(lineAnchors, m, data, cols);
+    else if (m.color === 'YC422') decodeRobot422(lineAnchors, m, data, cols);
+  }
+  else if (sys === 'PD')      decodePD(lineAnchors, m, data, cols);
+  else if (sys === 'Wraase')  decodeWraase(lineAnchors, m, data, cols);
+
+  ctx.putImageData(imgData, 0, 0);
+
+  peakFreqArray = savedPeaks;
+
+  var nInterp = lineAnchors.filter(function(a) { return a.interpolated; }).length;
+  setStatus('ok', '完成：' + lineAnchors.length + ' 行，sync：' + syncPulses.length +
+    '（插補：' + nInterp + '）');
+  hasDecoded = true;
+  document.getElementById('save-btn').style.display = 'block';
+}
+
+function setStatus(cls, msg) {
+  var el = document.getElementById('decode-status');
+  el.className = 'status ' + cls;
+  el.textContent = msg;
+}
+
+function saveImage() {
+  var canvas = document.getElementById('result');
+  var link = document.createElement('a');
+  link.download = filename + '_decoded.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function updateAdjSliderRanges() {
+  var m = getSelectedMode(); if (!m) return;
+  var lineMs    = computeLineTimeMs(m);
+  var offSlider = document.getElementById('adj-offset-slider');
+  var skwSlider = document.getElementById('adj-skew-slider');
+  if (!offSlider || !skwSlider) return;
+  offSlider.min  = (-lineMs).toFixed(1);
+  offSlider.max  = ( lineMs).toFixed(1);
+  offSlider.step = (lineMs / 1000).toFixed(4);
+  skwSlider.min  = (-lineMs / 10).toFixed(3);
+  skwSlider.max  = ( lineMs / 10).toFixed(3);
+  skwSlider.step = (lineMs / 10000).toFixed(5);
+}
+
+// ============================================================
+// REACTIVE DECODE
+// ============================================================
+document.getElementById('settings-panel').addEventListener('change', function(e) {
+  const excludedIds = ['fft-window', 'fft-hop', 'Freq min', 'fft-freq-hi'];
+  if (excludedIds.includes(e.target.id)) return;
+  if (!hasDecoded || !peakFreqArray.length) return;
+  if (['fft-window','fft-hop','fft-freq-lo','fft-freq-hi'].indexOf(e.target.id) >= 0) acceptRange();
+  else decode();
+});
+document.getElementById('settings-panel').addEventListener('input', function(e) {
+  const excludedIds = ['fft-window', 'fft-hop', 'Freq min', 'fft-freq-hi'];
+  if (excludedIds.includes(e.target.id)) return;
+  if (!hasDecoded || !peakFreqArray.length) return;
+  decode();
+});
+
+document.getElementById('adj-offset').addEventListener('input', function() {
+  var s = document.getElementById('adj-offset-slider'); if (s) s.value = this.value;
+});
+document.getElementById('adj-offset-slider').addEventListener('input', function() {
+  document.getElementById('adj-offset').value = parseFloat(this.value).toFixed(2);
+});
+document.getElementById('adj-skew').addEventListener('input', function() {
+  var s = document.getElementById('adj-skew-slider'); if (s) s.value = this.value;
+});
+document.getElementById('adj-skew-slider').addEventListener('input', function() {
+  document.getElementById('adj-skew').value = parseFloat(this.value).toFixed(3);
+});
+</script>
+</body>
+</html>
