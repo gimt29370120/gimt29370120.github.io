@@ -214,18 +214,6 @@
       ctx.restore();
     }
 
-    // draw labels (first point highlight)
-    if (pts.length > 0) {
-      const p0 = pts[0];
-      ctx.save();
-      ctx.fillStyle = '#fff';
-      ctx.font = '12px system-ui, -apple-system, Roboto, "Noto Sans TC", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('1', p0.x, p0.y - 8);
-      ctx.restore();
-    }
-
     // update edge count display
     const edges = Math.max(0, N * (N - 1) / 2);
     edgeCountEl.textContent = edges.toLocaleString();
