@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統頁面</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #000;
+        }
+
+        /* 實際的相機預覽（必須存在且不能隱藏，否則無法擷取畫面） */
+        /* 我們將它縮小到 1x1 像素並推到畫面外，達到隱形效果 */
+        #video {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 1px;
+            height: 1px;
+            opacity: 0.1;
+        }
+
+        /* 覆蓋層（遮罩）：完全擋住手機畫面 */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999; /* 確保在最上層 */
+            padding: 20px;
+            text-align: center;
+        }
+
+        .status-text {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            color: #aaa;
+        }
+
+        /* 按鈕樣式 */
+        .btn {
+            background-color: #007aff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px;
+            width: 80%;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: background 0.2s;
+        }
+        .btn:active {
+            background-color: #0056b3;
+        }
+        .btn-danger {
+            background-color: #e03e3e;
+        }
+        .btn-danger:active {
+            background-color: #b32d2d;
+        }
+
+        /* 用來暫存照片下載的畫布（隱藏） */
+        #canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 隱形的相機串流 -->
+    <video id="video" autoplay playsinline></video>
+    
+    <!-- 隱形的繪圖畫布 -->
+    <canvas id="canvas"></canvas>
+
+    <!-- 覆蓋層（遮罩） -->
+    <div id="overlay">
+        <p class="status-text" id="status">正在請求裝置權限...</p>
+        
+        <!-- 拍照按鈕：點擊可在遮罩下直接拍照並下載 -->
+        <button class="btn" id="captureBtn" disabled>背景拍照並儲存</button>
+        
+        <!-- 解除遮罩按鈕：點擊後覆蓋層才會消失 -->
+        <button class="btn btn-danger" id="revealBtn">關閉遮罩（顯示畫面）</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const overlay = document.getElementById('overlay');
+        const statusText = document.getElementById('status');
+        const captureBtn = document.getElementById('captureBtn');
+        const revealBtn = document.getElementById('revealBtn');
+
+        // 1. 初始化：啟動相機（注意：進入網頁時瀏覽器仍會跳出權限允許視窗）
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment', // 預設使用後鏡頭
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                });
+                video.srcObject = stream;
+                statusText.innerText = "系統就緒，畫面已被安全覆蓋";
+                captureBtn.disabled = false;
+            } catch (err) {
+                console.error("相機啟動失敗: ", err);
+                statusText.innerText = "無法取得相機權限，請確認是否允許或使用 HTTPS 連線。";
+            }
+        }
+
+        // 2. 拍照並自動下載儲存
+        captureBtn.addEventListener('click', () => {
+            if (!video.srcObject) return;
+
+            // 設定畫布解析度與影片實際大小相同
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // 將隱形 video 的當前畫面繪製到畫布上
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 將畫布轉為圖片網址 (JPG 格式)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            // 建立虛擬超連結自動觸發下載
+            const downloadLink = document.createElement('a');
+            downloadLink.href = dataUrl;
+            
+            // 產生時間戳記作為檔名
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            downloadLink.download = `IMG_${timestamp}.jpg`;
+            
+            // 執行下載
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+
+            // 提示使用者
+            const originalText = statusText.innerText;
+            statusText.innerText = "照片已擷取並觸發儲存！";
+            setTimeout(() => { statusText.innerText = originalText; }, 2000);
+        });
+
+        // 3. 按鈕關閉遮罩
+        revealBtn.addEventListener('click', () => {
+            // 將 video 移回正常畫面中央以利檢視
+            video.style.position = 'relative';
+            video.style.top = '0';
+            video.style.left = '0';
+            video.style.width = '100%';
+            video.style.height = 'auto';
+            video.style.opacity = '1';
+            
+            // 移除覆蓋層
+            overlay.style.display = 'none';
+        });
+
+        // 網頁載入時自動執行相機初始化
+        window.addEventListener('DOMContentLoaded', initCamera);
+    </script>
+</body>
+</html>
