@@ -171,7 +171,7 @@ adjustBtn.addEventListener('click', () => {
   }
 
   if(lightness!=0.5){
-    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"k**"+(Math.tan((1-lightness)*Math.PI/2)).toFixed(3).toString());
+    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"k/(k+"+(Math.tan((1-lightness)*Math.PI/2)).toFixed(3).toString())+"*(1-k))";
   }
 
   if(gurm!=0.5){
