@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canvas RGB 公式繪圖</title>
+
+<style>
+  body {
+    font-family: sans-serif;
+    margin: 20px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+
+  label {
+    white-space: nowrap;
+  }
+
+  input {
+    padding: 5px;
+    box-sizing: border-box;
+  }
+
+  .formula {
+    width: 300px;
+  }
+
+  #heightInput {
+    width: 100px;
+  }
+
+  button {
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+
+  .canvas-container {
+    width: 100%;
+    max-width: 900px;
+    height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #aaa;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    image-rendering: auto;
+  }
+
+  #sizeInfo {
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="controls">
+  <label>
+    垂直像素：
+    <input id="heightInput" type="number" value="300" min="1">
+  </label>
+
+  <span>長寬比：</span>
+  <input id="ratioInput" type="number" value="1.7777777778" min="0.0001" step="any">
+
+  <button id="applySize">設定畫布大小</button>
+</div>
+
+<div id="sizeInfo">
+  Canvas：533 × 300
+</div>
+
+<div class="controls">
+  <label>
+    R：
+    <input id="rFormula" class="formula" type="text"
+      value="255">
+  </label>
+
+  <label>
+    G：
+    <input id="gFormula" class="formula" type="text"
+      value="255">
+  </label>
+
+  <label>
+    B：
+    <input id="bFormula" class="formula" type="text"
+      value="255">
+  </label>
+
+  <label>
+    K：
+    <input id="kFormula" class="formula" type="text"
+      placeholder="留空則使用 RGB 各自公式">
+  </label>
+
+  <button id="drawButton">套用公式</button>
+</div>
+
+<div>
+  x：中心為 0，向右為正<br>
+  y：中心為 0，向上為正
+</div>
+
+<br>
+
+<div class="canvas-container">
+  <canvas id="canvas"></canvas>
+</div>
+
+<script>
+"use strict";
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const heightInput = document.getElementById("heightInput");
+const ratioInput = document.getElementById("ratioInput");
+const applySize = document.getElementById("applySize");
+
+const rFormula = document.getElementById("rFormula");
+const gFormula = document.getElementById("gFormula");
+const bFormula = document.getElementById("bFormula");
+const kFormula = document.getElementById("kFormula");
+
+const drawButton = document.getElementById("drawButton");
+const sizeInfo = document.getElementById("sizeInfo");
+
+
+function updateCanvasSize() {
+  const height = Math.max(1, Math.round(Number(heightInput.value)));
+  const ratio = Number(ratioInput.value);
+
+  if (!Number.isFinite(ratio) || ratio <= 0) {
+    return;
+  }
+
+  const width = Math.max(1, Math.round(height * ratio));
+
+  canvas.width = width;
+  canvas.height = height;
+
+  sizeInfo.textContent = `Canvas：${width} × ${height}`;
+}
+
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+
+function createFormulaFunction(formula) {
+  if (!formula.trim()) {
+    return null;
+  }
+
+  return new Function(
+    "x",
+    "y",
+    `
+      return (${formula});
+    `
+  );
+}
+
+
+function draw() {
+  const width = canvas.width;
+  const height = canvas.height;
+
+  const rFunc = createFormulaFunction(rFormula.value);
+  const gFunc = createFormulaFunction(gFormula.value);
+  const bFunc = createFormulaFunction(bFormula.value);
+  const kFunc = createFormulaFunction(kFormula.value);
+
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+
+  /*
+    Canvas 座標：
+      左上 = (0, 0)
+      y 向下增加
+
+    這裡轉換成：
+      中心 = (0, 0)
+      x 向右增加
+      y 向上增加
+  */
+
+  const centerX = (width - 1) / 2;
+  const centerY = (height - 1) / 2;
+
+  let index = 0;
+
+  for (let py = 0; py < height; py++) {
+    const y = centerY - py;
+
+    for (let px = 0; px < width; px++) {
+      const x = px - centerX;
+
+      let r;
+      let g;
+      let b;
+
+      if (kFunc) {
+        const k = kFunc(x, y);
+
+        r = k;
+        g = k;
+        b = k;
+      } else {
+        r = rFunc ? rFunc(x, y) : 0;
+        g = gFunc ? gFunc(x, y) : 0;
+        b = bFunc ? bFunc(x, y) : 0;
+      }
+
+      if (!Number.isFinite(r)) r = 0;
+      if (!Number.isFinite(g)) g = 0;
+      if (!Number.isFinite(b)) b = 0;
+
+      data[index++] = clamp(Math.round(r), 0, 255);
+      data[index++] = clamp(Math.round(g), 0, 255);
+      data[index++] = clamp(Math.round(b), 0, 255);
+      data[index++] = 255;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+
+applySize.addEventListener("click", () => {
+  updateCanvasSize();
+  draw();
+});
+
+
+drawButton.addEventListener("click", () => {
+  try {
+    draw();
+  } catch (error) {
+    alert("公式錯誤：\n" + error.message);
+  }
+});
+
+
+updateCanvasSize();
+draw();
+</script>
+
+</body>
+</html>
