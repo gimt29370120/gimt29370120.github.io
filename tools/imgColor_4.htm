@@ -167,15 +167,15 @@ adjustBtn.addEventListener('click', () => {
 
   let input="k";
   if(gamma!=0.5){
-    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"k**"+(Math.tan((1-gamma)*Math.PI/2)).toFixed(3).toString());
+    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"k**("+Math.tan((1-gamma)*Math.PI/2).toFixed(3).toString()+")");
   }
 
   if(lightness!=0.5){
-    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"Math.min(k,0)/(Math.min(0,k)+"+(Math.tan((1-lightness)*Math.PI/2)).toFixed(3).toString())+"*(1-Math.min(0,k)))";
+    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"k/(k+("+Math.tan((1-lightness)*Math.PI/2).toFixed(3).toString()+")*(1-k))");
   }
 
   if(gurm!=0.5){
-    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,((1-gurm)*6-2). toFixed(4).toString()+"*k*(k-0.5)*(k-1)+k");
+    input=input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"("+((1-gurm)*6-2).toFixed(4).toString()+")*k*(k-0.5)*(k-1)+k");
   }
 
   input="("+input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"(k/255)")+")*255";
