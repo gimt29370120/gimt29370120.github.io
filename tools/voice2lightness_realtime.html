@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音量控制圓點亮度</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            margin: 0;
+            gap: 16px;
+        }
+        .dot {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: rgb(127, 127, 127);
+            transition: none;
+            cursor: pointer;
+            flex: 0 0 auto;
+        }
+        #status {
+            color: #eee;
+            font: 14px sans-serif;
+            text-align: center;
+            padding: 0 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dot" title="點擊以啟用麥克風"></div>
+    <div id="status">點擊圓點以啟用麥克風</div>
+
+    <script>
+        const dot = document.querySelector('.dot');
+        const status = document.querySelector('#status');
+        let started = false;
+        let latestBrightness = 0;
+        let stream;
+        let audioContext;
+
+        async function startAudioProcessing() {
+            if (started) return;
+            started = true;
+            dot.style.cursor = 'default';
+            status.textContent = '正在啟用麥克風……';
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    latencyHint: 'interactive'
+                });
+                await audioContext.resume();
+
+                const source = audioContext.createMediaStreamSource(stream);
+                const processorCode = `
+                    class VolumeProcessor extends AudioWorkletProcessor {
+                        process(inputs) {
+                            const channels = inputs[0];
+                            if (channels && channels.length && channels[0].length) {
+                                const samples = channels[0];
+                                let sumSquares = 0;
+                                for (let i = 0; i < samples.length; i++) {
+                                    sumSquares += samples[i] * samples[i];
+                                }
+                                const rms = Math.sqrt(sumSquares / samples.length);
+                                this.port.postMessage(rms);
+                            }
+                            return true;
+                        }
+                    }
+                    registerProcessor('volume-processor', VolumeProcessor);
+                `;
+
+                const moduleURL = URL.createObjectURL(
+                    new Blob([processorCode], { type: 'text/javascript' })
+                );
+                await audioContext.audioWorklet.addModule(moduleURL);
+                URL.revokeObjectURL(moduleURL);
+
+                const processor = new AudioWorkletNode(audioContext, 'volume-processor');
+                processor.port.onmessage = (event) => {
+                    const rms = event.data;
+                    // 調整增益，讓一般說話音量也能明顯反映在亮度上。
+                    latestBrightness = Math.max(0, Math.min(255, Math.round(rms * 1800)));
+                };
+
+                source.connect(processor);
+                // 連接至靜音節點以避免麥克風聲音回放到喇叭。
+                const mute = audioContext.createGain();
+                mute.gain.value = 0;
+                processor.connect(mute);
+                mute.connect(audioContext.destination);
+
+                status.textContent = '麥克風已啟用';
+                function updateDisplay() {
+                    const value = latestBrightness;
+                    dot.style.backgroundColor = `rgb(${value}, ${value}, ${value})`;
+                    requestAnimationFrame(updateDisplay);
+                }
+                requestAnimationFrame(updateDisplay);
+            } catch (err) {
+                started = false;
+                dot.style.cursor = 'pointer';
+                status.textContent = '無法啟用麥克風：' + (err.message || err);
+                console.error('無法取得音訊輸入：', err);
+                if (stream) stream.getTracks().forEach(track => track.stop());
+                if (audioContext) await audioContext.close().catch(() => {});
+            }
+        }
+
+        dot.addEventListener('click', startAudioProcessing);
+    </script>
+</body>
+</html>
