@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>可見光波長與顏色</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 30px;
+      font-family: Arial, "Noto Sans TC", sans-serif;
+      background: #f5f5f5;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 3px 15px #0002;
+    }
+
+    h1 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .spectrum-container {
+      position: relative;
+      margin-top: 30px;
+    }
+
+    #spectrum {
+      width: 100%;
+      height: 150px;
+      display: block;
+      border: 1px solid #888;
+      cursor: crosshair;
+    }
+
+    .axis {
+      position: relative;
+      height: 35px;
+    }
+
+    .tick {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .tick::before {
+      content: "";
+      display: block;
+      width: 1px;
+      height: 8px;
+      background: #222;
+      margin: 0 auto 3px;
+    }
+
+    .info {
+      margin-top: 25px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+
+    .box {
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .label {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    .value {
+      font-size: 22px;
+      font-weight: bold;
+      font-family: monospace;
+    }
+
+    #colorPreview {
+      height: 80px;
+      border-radius: 8px;
+      border: 1px solid #aaa;
+      margin-top: 15px;
+    }
+
+    .controls {
+      margin-top: 25px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    input[type="number"] {
+      width: 100px;
+      padding: 7px;
+      font-size: 16px;
+    }
+
+    .note {
+      margin-top: 25px;
+      color: #555;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 15px;
+      }
+
+      .info {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>可見光波長 → RGB 彩虹圖</h1>
+
+  <div class="spectrum-container">
+    <canvas id="spectrum"></canvas>
+
+    <div class="axis">
+      <div class="tick" style="left: 0%;">380 nm</div>
+      <div class="tick" style="left: 12.5%;">430</div>
+      <div class="tick" style="left: 25%;">480</div>
+      <div class="tick" style="left: 37.5%;">530</div>
+      <div class="tick" style="left: 50%;">580</div>
+      <div class="tick" style="left: 62.5%;">630</div>
+      <div class="tick" style="left: 75%;">680</div>
+      <div class="tick" style="left: 87.5%;">730</div>
+      <div class="tick" style="left: 100%;">780</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label for="wavelength">波長：</label>
+
+    <input
+      id="wavelength"
+      type="number"
+      min="380"
+      max="780"
+      step="1"
+      value="550"
+    >
+
+    <span>nm</span>
+
+    <input
+      id="slider"
+      type="range"
+      min="380"
+      max="780"
+      step="1"
+      value="550"
+    >
+  </div>
+
+  <div class="info">
+
+    <div class="box">
+      <div class="label">波長</div>
+      <div class="value" id="nmValue">550 nm</div>
+    </div>
+
+    <div class="box">
+      <div class="label">RGB</div>
+      <div class="value" id="rgbValue">0, 255, 109</div>
+    </div>
+
+    <div class="box">
+      <div class="label">HEX</div>
+      <div class="value" id="hexValue">#00FF6D</div>
+    </div>
+
+    <div class="box">
+      <div class="label">頻率</div>
+      <div class="value" id="frequencyValue">545.1 THz</div>
+    </div>
+
+  </div>
+
+  <div id="colorPreview"></div>
+
+  <div class="note">
+    <b>轉換方式：</b>Dan Bruton 的可見光波長 → RGB 近似公式。
+    波長範圍為 380–780 nm。RGB 各分量在不同波段中做線性變化，
+    最後使用 gamma = 0.8 進行修正。
+    <br>
+    這個結果是螢幕顯示用的近似色，並不代表實際單色光在所有顯示器上的物理顏色。
+  </div>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("spectrum");
+const ctx = canvas.getContext("2d");
+
+const wavelengthInput = document.getElementById("wavelength");
+const slider = document.getElementById("slider");
+
+const nmValue = document.getElementById("nmValue");
+const rgbValue = document.getElementById("rgbValue");
+const hexValue = document.getElementById("hexValue");
+const frequencyValue = document.getElementById("frequencyValue");
+const colorPreview = document.getElementById("colorPreview");
+
+function smoothstep(x) {
+  return x*(2-x);
+  return x * x * (3 - 2 * x);
+}
+
+function lightsmoothstep(x) {
+  return x * x * (3 - 2 * x);
+}
+
+// ------------------------------------------------------------
+// 波長 → RGB
+// Dan Bruton approximation
+// 380 ~ 780 nm
+// ------------------------------------------------------------
+
+function wavelengthToRGB(wavelength) {
+
+  let R = 0.0;
+  let G = 0.0;
+  let B = 0.0;
+  let shift=25.0;
+  
+  // R
+  if (wavelength>380&&wavelength<=440) {
+    R = smoothstep((440-wavelength)/50)*0.7;
+  } else if (wavelength>=510&&wavelength<=580+shift) {
+    R = smoothstep((wavelength - 510) / (70+shift));
+  } else if(wavelength>580+shift) {
+    R = 1.0;
+  } else {
+    R=0;
+  }
+
+  // G
+  if (wavelength < 440||wavelength>645) {
+    G = 0;
+  } else if (wavelength < 490+shift) {
+    G = smoothstep((wavelength - 440) / (50+shift));
+  } else if (wavelength > 580-shift&&wavelength<645) {
+    G = smoothstep((645-wavelength) / (65+shift));
+  } else {
+    G = 1;
+  }
+
+  // B
+  if (wavelength < 380) {
+    B = 0;
+  } else if (wavelength < 490-shift) {
+    B = 1;
+  } else if (wavelength < 510) {
+    B = smoothstep((510-wavelength) / (20+shift));
+  } else {
+    B = 0;
+  }
+ 
+  //亮度倍數
+  
+  let t=0.3;
+
+if(wavelength>=380&&wavelength<460){
+  let x=(wavelength-380)/80;
+  t=0.3+0.7*lightsmoothstep(x);
+}else if(wavelength>=420&&wavelength<700){
+  t=1.0;
+}else if(wavelength>=700&&wavelength<750){
+  let x=(750-wavelength)/50;
+  t=0.3+0.7*lightsmoothstep(x);
+}
+
+R=R*t;
+G=G*t;
+B=B*t;
+
+  // ----------------------------------------------------------
+  // Gamma correction
+  // Bruton 常見實作使用 gamma = 0.8
+  // ----------------------------------------------------------
+
+  const gamma = 0.8;
+
+  R = Math.pow(R, gamma);
+  G = Math.pow(G, gamma);
+  B = Math.pow(B, gamma);
+
+
+  return {
+    r: Math.round(R * 255),
+    g: Math.round(G * 255),
+    b: Math.round(B * 255)
+  };
+}
+
+
+// ------------------------------------------------------------
+// RGB → HEX
+// ------------------------------------------------------------
+
+function rgbToHex(r, g, b) {
+
+  return "#" +
+    r.toString(16).padStart(2, "0") +
+    g.toString(16).padStart(2, "0") +
+    b.toString(16).padStart(2, "0");
+
+}
+
+
+// ------------------------------------------------------------
+// 更新顯示
+// ------------------------------------------------------------
+
+function update(wavelength) {
+
+  wavelength = Math.max(380, Math.min(780, wavelength));
+
+  wavelengthInput.value = wavelength;
+  slider.value = wavelength;
+
+  const rgb = wavelengthToRGB(wavelength);
+  const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+
+  nmValue.textContent =
+    wavelength + " nm";
+
+  rgbValue.textContent =
+    `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+
+  hexValue.textContent =
+    hex.toUpperCase();
+
+  colorPreview.style.background =
+    hex;
+
+
+  // 光速 c = 299792458 m/s
+  // f = c / lambda
+
+  const c = 299792458;
+  const frequency =
+    c / (wavelength * 1e-9);
+
+  frequencyValue.textContent =
+    (frequency / 1e12).toFixed(1) + " THz";
+
+}
+
+
+// ------------------------------------------------------------
+// 畫彩虹
+// ------------------------------------------------------------
+
+function drawSpectrum() {
+
+  const rect = canvas.getBoundingClientRect();
+
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const width = rect.width;
+  const height = rect.height;
+
+  for (let x = 0; x < width; x++) {
+
+    const wavelength =
+      380 +
+      (x / (width - 1)) * (780 - 380);
+
+    const rgb =
+      wavelengthToRGB(wavelength);
+
+    ctx.fillStyle =
+      `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+
+    ctx.fillRect(
+      x,
+      0,
+      1.5,
+      height
+    ); 
+
+  }
+
+}
+
+
+// ------------------------------------------------------------
+// 點擊彩虹圖選擇波長
+// ------------------------------------------------------------
+
+canvas.addEventListener("click", function(event) {
+
+  const rect = canvas.getBoundingClientRect();
+
+  let x =
+    event.clientX - rect.left;
+
+  x =
+    Math.max(0, Math.min(rect.width, x));
+
+  const wavelength =
+    380 +
+    x / rect.width * 400;
+
+  update(Math.round(wavelength));
+
+});
+
+
+// ------------------------------------------------------------
+// 滑桿
+// ------------------------------------------------------------
+
+slider.addEventListener("input", function() {
+
+  update(Number(this.value));
+
+});
+
+
+// ------------------------------------------------------------
+// 數字輸入
+// ------------------------------------------------------------
+
+wavelengthInput.addEventListener("input", function() {
+
+  let value = Number(this.value);
+
+  if (!Number.isFinite(value)) {
+    return;
+  }
+
+  value =
+    Math.max(380, Math.min(780, value));
+
+  update(value);
+
+});
+
+
+// ------------------------------------------------------------
+// 初始化
+// ------------------------------------------------------------
+
+window.addEventListener("resize", drawSpectrum);
+
+drawSpectrum();
+update(550);
+
+</script>
+
+</body>
+</html>
