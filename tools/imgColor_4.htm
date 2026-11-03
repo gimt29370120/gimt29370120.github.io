@@ -49,16 +49,16 @@ button:active {
 <button class="l80" id="applyAllBtn1">共用k(0到1)</button>
 <input type="text" value="k" id="allFactor1" style="width:40%;position:absolute;left:240px;"/>
 <br/>
-<a>常數n = </a>
+<a class="180">常數n = </a>
 <input type="range" min="0" max="1" step="0.001" value="0.5" id="normal" style="width:40%;position:absolute;left:240px;"/><br/>
 <br/>
 
 <a class="l80">------------------------------</a></br>
 
 <a class="l80">放大倍數 =</a>
-<input type="range" min="-255" max="255" step="0.001" value="0.5" id="fka" style="width:40%;position:absolute;left:240px;"/><br/>
+<input type="range" min="-8" max="8" step="0.001" value="0" id="fka" style="width:40%;position:absolute;left:240px;"/><br/>
 <a class="l80">放大中心 =</a>
-<input type="range" min="0" max="255" step="0.001" value="0.5" id="fkb" style="width:40%;position:absolute;left:240px;"/><br/>
+<input type="range" min="0" max="255" step="0.001" value="127" id="fkb" style="width:40%;position:absolute;left:240px;"/><br/>
 
 <button class="l80" id="adjustBtn1">--線性調整--</button>
 <button class="l80" id="Reset1">重置滑桿</button><br/>
@@ -217,7 +217,7 @@ adjustBtn1.addEventListener('click', () => {
   let fka = document.getElementById("fka").value;
   let fkb = document.getElementById("fkb").value
 
-  let input=`${fkb}+${fka}*(k-${fkb})`;
+  let input=`${fkb}+${2**fka}*(k-${fkb})`;
   const rInput = document.getElementById("rFactor");
   const gInput = document.getElementById("gFactor");
   const bInput = document.getElementById("bFactor");
@@ -231,7 +231,7 @@ adjustBtn1.addEventListener('click', () => {
 
 const Reset1 = document.getElementById('Reset1');
 Reset.addEventListener('click', () => {
-  document.getElementById("fka").value=1;
+  document.getElementById("fka").value=0;
   document.getElementById("fkb").value=127;
 });
 
