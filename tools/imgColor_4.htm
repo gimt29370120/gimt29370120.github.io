@@ -277,17 +277,17 @@ function draw(){
 
   const data = imageData.data;
 
-  const rInput = document.getElementById("rFactor").value;
-  const gInput = document.getElementById("gFactor").value;
-  const bInput = document.getElementById("bFactor").value;
-  const normal = document.getElementById("normal").value;
+  const rInput = document.getElementById("rFactor");
+  const gInput = document.getElementById("gFactor");
+  const bInput = document.getElementById("bFactor");
+  const normal = document.getElementById("normal");
 
   let rFunc, gFunc, bFunc;
 
   try {
-    rFunc = new Function('r', 'g', 'b', 'return ' + rInput.replace(/(?<![a-zA-Z0-9])n(?![a-zA-Z0-9])/g, `(${normal})`));
-    gFunc = new Function('r', 'g', 'b', 'return ' + gInput);
-    bFunc = new Function('r', 'g', 'b', 'return ' + bInput);
+    rFunc = new Function('r', 'g', 'b', 'return ' + rInput.value.replace(/(?<![a-zA-Z0-9])n(?![a-zA-Z0-9])/g, `(${normal.value})`));
+    gFunc = new Function('r', 'g', 'b', 'return ' + gInput.value);
+    bFunc = new Function('r', 'g', 'b', 'return ' + bInput.value);
   } catch (e) {
     alert("公式錯誤，請檢查輸入！");
     return;
