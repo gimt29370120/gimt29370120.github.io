@@ -49,6 +49,19 @@ button:active {
 <button class="l80" id="applyAllBtn1">共用k(0到1)</button>
 <input type="text" value="k" id="allFactor1" style="width:40%;position:absolute;left:240px;"/>
 <br/>
+<a>常數n = </a>
+<input type="range" min="0" max="1" step="0.001" value="0.5" id="normal" style="width:40%;position:absolute;left:240px;"/><br/>
+<br/>
+
+<a class="l80">------------------------------</a></br>
+
+<a class="l80">放大倍數 =</a>
+<input type="range" min="-255" max="255" step="0.001" value="0.5" id="fka" style="width:40%;position:absolute;left:240px;"/><br/>
+<a class="l80">放大中心 =</a>
+<input type="range" min="0" max="255" step="0.001" value="0.5" id="fkb" style="width:40%;position:absolute;left:240px;"/><br/>
+
+<button class="l80" id="adjustBtn1">--線性調整--</button>
+<button class="l80" id="Reset1">重置滑桿</button><br/>
 
 <a class="l80">------------------------------</a></br>
 
@@ -199,6 +212,29 @@ Reset.addEventListener('click', () => {
   document.getElementById("gurm").value=0.5;
 });
 
+const adjustBtn1 = document.getElementById('adjustBtn1');
+adjustBtn1.addEventListener('click', () => {
+  let fka = document.getElementById("fka").value;
+  let fkb = document.getElementById("fkb").value
+
+  let input=`${fkb}+${fka}*(k-${fkb})`;
+  const rInput = document.getElementById("rFactor");
+  const gInput = document.getElementById("gFactor");
+  const bInput = document.getElementById("bFactor");
+
+    rInput.value = input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"r");
+    gInput.value = input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"g");
+    bInput.value = input.replace(/(?<![a-zA-Z0-9])k(?![a-zA-Z0-9])/g,"b");
+  
+  draw();
+});
+
+const Reset1 = document.getElementById('Reset1');
+Reset.addEventListener('click', () => {
+  document.getElementById("fka").value=1;
+  document.getElementById("fkb").value=127;
+});
+
 const applyHLBtn = document.getElementById('applyHLBtn');
 
 applyHLBtn.addEventListener('click', () => {
@@ -241,16 +277,17 @@ function draw(){
 
   const data = imageData.data;
 
-  const rInput = document.getElementById("rFactor");
-  const gInput = document.getElementById("gFactor");
-  const bInput = document.getElementById("bFactor");
+  const rInput = document.getElementById("rFactor").value;
+  const gInput = document.getElementById("gFactor").value;
+  const bInput = document.getElementById("bFactor").value;
+  const normal = document.getElementById("normal").value;
 
   let rFunc, gFunc, bFunc;
 
   try {
-    rFunc = new Function('r', 'g', 'b', 'return ' + rInput.value);
-    gFunc = new Function('r', 'g', 'b', 'return ' + gInput.value);
-    bFunc = new Function('r', 'g', 'b', 'return ' + bInput.value);
+    rFunc = new Function('r', 'g', 'b', 'return ' + rInput.replace(/(?<![a-zA-Z0-9])n(?![a-zA-Z0-9])/g, `(${normal})`));
+    gFunc = new Function('r', 'g', 'b', 'return ' + gInput);
+    bFunc = new Function('r', 'g', 'b', 'return ' + bInput);
   } catch (e) {
     alert("公式錯誤，請檢查輸入！");
     return;
