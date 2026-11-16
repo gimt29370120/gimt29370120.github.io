@@ -30,6 +30,7 @@ button:active {
 
 <h2 class="l80">載入圖片並修改 RGB</h2>
 <input type="file" id="upload" class="l80" accept="image/*"/><br/>
+<button id="captureBtn">從螢幕截圖取得圖片</button>
 <div class="l80" style="margin-top:8px;">
   <input type="url" id="imageUrl" placeholder="輸入圖片網址（https://...）" style="width:55%;"/>
   <button id="loadUrlBtn">載入網址圖片</button>
@@ -130,7 +131,40 @@ uploadInput.addEventListener('change', (event) => {
   };
   reader.readAsDataURL(file);
 });
+document.getElementById('captureBtn').addEventListener('click', async () => {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true
+    });
 
+    const video = document.createElement('video');
+    video.srcObject = stream;
+
+    await video.play();
+
+    const captureCanvas = document.createElement('canvas');
+    captureCanvas.width = video.videoWidth;
+    captureCanvas.height = video.videoHeight;
+
+    const captureCtx = captureCanvas.getContext('2d');
+    captureCtx.drawImage(video, 0, 0);
+
+    stream.getTracks().forEach(track => track.stop());
+
+    canvas.width = captureCanvas.width;
+    canvas.height = captureCanvas.height;
+
+    ctx.drawImage(captureCanvas, 0, 0);
+
+    originalImageData = ctx.getImageData(
+      0, 0, canvas.width, canvas.height
+    );
+
+    originalFileName = "screenshot";
+  } catch (e) {
+    alert("無法取得螢幕截圖：" + e.message);
+  }
+});
 const imageUrlInput = document.getElementById('imageUrl');
 document.getElementById('loadUrlBtn').addEventListener('click', () => {
   const url = imageUrlInput.value.trim();
