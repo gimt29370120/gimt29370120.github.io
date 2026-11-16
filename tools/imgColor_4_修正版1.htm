@@ -149,7 +149,7 @@ document.getElementById('loadUrlBtn').addEventListener('click', () => {
   }
 
   const img = new Image();
-  img.crossOrigin = "anonymous";
+  //img.crossOrigin = "anonymous";
   img.onload = () => {
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
