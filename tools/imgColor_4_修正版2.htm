@@ -159,7 +159,7 @@ document.getElementById('loadUrlBtn').addEventListener('click', () => {
       originalFileName = decodeURIComponent(parsedUrl.pathname.split('/').pop() || "image");
       originalFileName = originalFileName.replace(/\\.[^.]*$/, "") || "image";
     } catch (e) {
-      originalImageData = null;
+      //originalImageData = null;
       alert("無法讀取這張圖片的像素資料。圖片所在網站可能未開放跨來源存取（CORS），請改用下載後上傳的方式。");
     }
   };
